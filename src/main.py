@@ -30,7 +30,7 @@ from src.discord_notify import (
     build_transaction_embed,
 )
 from src.fantasycalc import FantasyCalcClient, grade_trade, trade_imbalance_percent
-from src.rules.engine import RuleContext, evaluate_all
+from src.rules.engine import RuleContext, evaluate_all, registered_rule_ids
 from src.sleeper import SleeperClient, effective_transaction_week
 from src.state import AlertRecord, LeagueState, WatchdogState, load_state, now_utc, save_state
 
@@ -237,11 +237,17 @@ def process_rules(
     for r in evaluate_all(ctx, rules_yaml):
         results_by_rule.setdefault(r.rule_id, []).append(r)
 
+    registered = set(registered_rule_ids())
     new_alerts = 0
     for rule_cfg in rules_yaml.get("rules", []):
         if not rule_cfg.get("enabled"):
             continue
         rid = rule_cfg["id"]
+        if rid not in registered:
+            # Rule declared in YAML but no implementation yet (planned for a
+            # later phase). Skip silently so that when the impl lands it can
+            # bootstrap cleanly against the state at that moment.
+            continue
         rule_results = results_by_rule.get(rid, [])
 
         if rid not in bootstrapped_rules:

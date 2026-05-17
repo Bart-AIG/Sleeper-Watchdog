@@ -92,13 +92,8 @@
       ],
       "bootstrapped_rule_ids": [
         "trade_deadline",
-        "settings_changed",
-        "commish_change",
         "roster_size",
-        "taxi_eligibility",
-        "roster_oversight",
-        "lopsided_trade",
-        "ir_eligibility"
+        "lopsided_trade"
       ],
       "alerts_posted": [
         {
