@@ -3,7 +3,7 @@
   "leagues": {
     "1312238972738502656": {
       "bootstrapped_at": "2026-05-17T21:21:20.378548Z",
-      "last_run_at": "2026-05-17T22:14:18.395036Z",
+      "last_run_at": "2026-05-17T22:28:32.885813Z",
       "current_nfl_week": 0,
       "seen_transaction_ids": [
         "1361529975403970560",
@@ -93,7 +93,8 @@
       "bootstrapped_rule_ids": [
         "trade_deadline",
         "roster_size",
-        "lopsided_trade"
+        "lopsided_trade",
+        "settings_compliance"
       ],
       "alerts_posted": [
         {
@@ -119,6 +120,11 @@
         {
           "key": "1312238972738502656:1359722844904239104:lopsided_trade",
           "posted_at": "2026-05-17T22:10:26.181366Z",
+          "severity": "FLAG"
+        },
+        {
+          "key": "1312238972738502656:settings_compliance:league:9ee3c56017",
+          "posted_at": "2026-05-17T22:28:32.885671Z",
           "severity": "FLAG"
         }
       ]
