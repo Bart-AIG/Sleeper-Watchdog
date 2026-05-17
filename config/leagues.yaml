@@ -1,5 +1,5 @@
 leagues:
-  - id: "1317955896537530368"
-    name: "512 Dynasty"
+  - id: "1312238972738502656"
+    name: "512 Dynasty League"
     rules_file: "config/rules/512-dynasty.yaml"
     active: true
