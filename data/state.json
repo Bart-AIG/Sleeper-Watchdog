@@ -3,7 +3,7 @@
   "leagues": {
     "1312238972738502656": {
       "bootstrapped_at": "2026-05-17T21:21:20.378548Z",
-      "last_run_at": "2026-05-17T22:10:26.181460Z",
+      "last_run_at": "2026-05-17T22:14:18.395036Z",
       "current_nfl_week": 0,
       "seen_transaction_ids": [
         "1361529975403970560",
@@ -87,7 +87,18 @@
         "1312238972746874880:36",
         "1312238972746874880:37",
         "1312238972746874880:38",
-        "1312238972746874880:39"
+        "1312238972746874880:39",
+        "1312238972746874880:40"
+      ],
+      "bootstrapped_rule_ids": [
+        "trade_deadline",
+        "settings_changed",
+        "commish_change",
+        "roster_size",
+        "taxi_eligibility",
+        "roster_oversight",
+        "lopsided_trade",
+        "ir_eligibility"
       ],
       "alerts_posted": [
         {
