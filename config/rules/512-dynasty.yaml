@@ -86,13 +86,11 @@ rules:
   # Position composition enforced by Sleeper — bot just sanity-checks total.
   # ---------------------------------------------------------------------------
   - id: roster_size
-    enabled: false                                 # disabled: pre-draft dynasty rosters legitimately
-                                                   #   exceed 28. Re-enable once the rookie draft
-                                                   #   completes and rosters trim to in-season size,
-                                                   #   OR upgrade the rule to gate on league.status
-                                                   #   == "in_season".
+    enabled: true
     severity: FLAG                                 # Sleeper enforces; FLAG only as belt-and-suspenders
     params:
+      only_in_season: true                         # skip evaluation unless league.status == in_season;
+                                                   #   pre-draft dynasty rosters legitimately exceed 28
       max_active: 28                               # 11 starters + 17 bench
       max_ir: 4
       max_taxi: 3

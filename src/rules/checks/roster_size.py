@@ -22,6 +22,10 @@ class RosterSize:
     rule_id = "roster_size"
 
     def evaluate(self, ctx: RuleContext, params: dict[str, Any]) -> list[RuleResult]:
+        only_in_season = bool(params.get("only_in_season", True))
+        if only_in_season and ctx.league.get("status") != "in_season":
+            return []
+
         max_active = int(params.get("max_active", 28))
         max_ir = int(params.get("max_ir", 4))
         max_taxi = int(params.get("max_taxi", 3))

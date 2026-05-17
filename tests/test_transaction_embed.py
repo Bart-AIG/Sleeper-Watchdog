@@ -91,6 +91,32 @@ def test_free_agent_embed_includes_faab(
     assert "$5" in faab_field["value"]
 
 
+def test_trade_embed_with_grade_includes_values_section(
+    sample_transactions: list[dict[str, Any]],
+    sample_users: list[dict[str, Any]],
+    sample_rosters: list[dict[str, Any]],
+    sample_players: dict[str, dict[str, Any]],
+) -> None:
+    roster_to_team = build_roster_to_team(sample_rosters, sample_users)
+    trade = sample_transactions[0]
+    grade_data = {
+        3: {"sent": 10000, "received": 9500, "net": -500},
+        4: {"sent": 9500, "received": 10000, "net": 500},
+    }
+    embed = build_transaction_embed(
+        tx=trade,
+        league_id="L1",
+        league_name="Test",
+        roster_to_team=roster_to_team,
+        players=sample_players,
+        trade_grade=grade_data,
+        imbalance_percent=2.5,
+    )
+    values_field = next(f for f in embed["fields"] if f["name"] == "Trade values")
+    assert "10,000" in values_field["value"]
+    assert "2.5%" in values_field["value"]
+
+
 def test_unknown_player_falls_back_to_id(
     sample_users: list[dict[str, Any]],
     sample_rosters: list[dict[str, Any]],

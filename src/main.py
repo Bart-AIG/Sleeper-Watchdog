@@ -29,6 +29,7 @@ from src.discord_notify import (
     build_rule_alert_embed,
     build_transaction_embed,
 )
+from src.fantasycalc import FantasyCalcClient, grade_trade, trade_imbalance_percent
 from src.rules.engine import RuleContext, evaluate_all
 from src.sleeper import SleeperClient, effective_transaction_week
 from src.state import AlertRecord, LeagueState, WatchdogState, load_state, now_utc, save_state
@@ -116,6 +117,7 @@ def process_transactions(
     notifier: DiscordNotifier,
     roster_lookup: RosterLookup,
     transactions: list[dict[str, Any]],
+    fantasycalc: FantasyCalcClient | None,
     log: structlog.BoundLogger,
 ) -> int:
     league_id = str(league_cfg["id"])
@@ -127,12 +129,20 @@ def process_transactions(
     if new_txs:
         players = sleeper.get_players()
         for tx in new_txs:
+            trade_grade_data = None
+            imbalance = None
+            if fantasycalc is not None and tx.get("type") == "trade" and tx.get("status") == "complete":
+                trade_grade_data = grade_trade(tx, fantasycalc)
+                imbalance = trade_imbalance_percent(trade_grade_data)
+
             embed = build_transaction_embed(
                 tx=tx,
                 league_id=league_id,
                 league_name=league_name,
                 roster_to_team=roster_lookup.get(),
                 players=players,
+                trade_grade=trade_grade_data,
+                imbalance_percent=imbalance,
             )
             notifier.post(embed)
             league_state.seen_transaction_ids.append(str(tx["transaction_id"]))
@@ -195,6 +205,7 @@ def process_rules(
     roster_lookup: RosterLookup,
     nfl_state: dict[str, Any],
     transactions: list[dict[str, Any]],
+    fantasycalc: FantasyCalcClient | None,
     log: structlog.BoundLogger,
 ) -> int:
     league_id = str(league_cfg["id"])
@@ -216,6 +227,7 @@ def process_rules(
         rosters=roster_lookup.rosters(),
         transactions=transactions,
         roster_to_team=roster_lookup.get(),
+        fantasycalc=fantasycalc,
     )
 
     posted_keys = {ar.key for ar in league_state.alerts_posted}
@@ -278,14 +290,23 @@ def process_league(
         return
 
     roster_lookup = RosterLookup(sleeper, league_id)
+    fantasycalc = FantasyCalcClient()
     new_tx = process_transactions(
-        league_cfg, league_state, sleeper, notifier, roster_lookup, transactions, log
+        league_cfg, league_state, sleeper, notifier, roster_lookup, transactions, fantasycalc, log
     )
     new_picks = process_drafts(
         league_cfg, league_state, sleeper, notifier, roster_lookup, log
     )
     new_alerts = process_rules(
-        league_cfg, league_state, sleeper, notifier, roster_lookup, nfl_state, transactions, log
+        league_cfg,
+        league_state,
+        sleeper,
+        notifier,
+        roster_lookup,
+        nfl_state,
+        transactions,
+        fantasycalc,
+        log,
     )
 
     league_state.last_run_at = now_utc()

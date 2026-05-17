@@ -6,11 +6,12 @@ from src.rules.checks.roster_size import RosterSize
 from src.rules.engine import RuleContext
 
 
-def _ctx_with_rosters(rosters: list[dict]) -> RuleContext:
+def _ctx_with_rosters(rosters: list[dict], status: str = "in_season") -> RuleContext:
     return RuleContext(
         league_id="L1",
         league_name="Test",
         rosters=rosters,
+        league={"status": status},
         roster_to_team={1: "Team A", 2: "Team B"},
     )
 
@@ -52,6 +53,18 @@ def test_null_reserve_and_taxi_treated_as_empty() -> None:
         {"roster_id": 1, "players": [str(i) for i in range(10)], "reserve": None, "taxi": None},
     ]
     assert RosterSize().evaluate(_ctx_with_rosters(rosters), {}) == []
+
+
+def test_skipped_when_league_not_in_season() -> None:
+    rosters = [{"roster_id": 1, "players": [str(i) for i in range(30)], "reserve": [], "taxi": []}]
+    ctx = _ctx_with_rosters(rosters, status="drafting")
+    assert RosterSize().evaluate(ctx, {}) == []
+
+
+def test_only_in_season_can_be_overridden_off() -> None:
+    rosters = [{"roster_id": 1, "players": [str(i) for i in range(30)], "reserve": [], "taxi": []}]
+    ctx = _ctx_with_rosters(rosters, status="drafting")
+    assert len(RosterSize().evaluate(ctx, {"only_in_season": False})) == 1
 
 
 def test_alert_key_changes_when_counts_change() -> None:

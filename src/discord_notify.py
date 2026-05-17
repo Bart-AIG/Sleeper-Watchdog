@@ -60,6 +60,8 @@ def build_transaction_embed(
     league_name: str,
     roster_to_team: dict[int, str],
     players: dict[str, dict[str, Any]],
+    trade_grade: dict[int, dict[str, Any]] | None = None,
+    imbalance_percent: float | None = None,
     now: datetime | None = None,
 ) -> dict[str, Any]:
     """Build a Discord embed describing one Sleeper transaction.
@@ -94,6 +96,17 @@ def build_transaction_embed(
     faab_lines = _format_waiver_budget(tx.get("waiver_budget") or [], roster_to_team)
     if faab_lines:
         fields.append({"name": "FAAB", "value": "\n".join(faab_lines), "inline": False})
+
+    if trade_grade:
+        grade_lines = []
+        for rid, g in trade_grade.items():
+            team = roster_to_team.get(int(rid), f"Roster {rid}")
+            grade_lines.append(
+                f"**{team}**: sent {g['sent']:,}, received {g['received']:,}, net {g['net']:+,}"
+            )
+        if imbalance_percent is not None:
+            grade_lines.append(f"\nImbalance: **{imbalance_percent:.1f}%** (FantasyCalc dynasty SF)")
+        fields.append({"name": "Trade values", "value": "\n".join(grade_lines), "inline": False})
 
     fields.append(
         {
