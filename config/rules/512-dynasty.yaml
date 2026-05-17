@@ -1,195 +1,355 @@
-# =============================================================================
-# 512 Dynasty Fantasy Football — Constitution Rules
-# Source: 512_Dynasty_Fantasy_Football_Constitution.docx
-# League: 12-team Superflex TE Premium Dynasty
-# Commissioner: Ryan Bartlett
-# =============================================================================
-
-league_id: "1312238972738502656"                  # 512 Dynasty League (from sleeper.com/leagues/<this_id>/...)
-league_name: "512 Dynasty"
-notification_channel_id: "REPLACE_WITH_DISCORD_CHANNEL_ID"
+league_id: '1312238972738502656'
+league_name: 512 Dynasty
+notification_channel_id: REPLACE_WITH_DISCORD_CHANNEL_ID
 polling_seconds: 120
-
-# League calendar — manually set each season
-# Article X defines Off-Season Period 1 as day-after-championship to day-of-rookie-draft
-# Off-Season Period 2 = day-after-rookie-draft to 1 week before NFL Week 1
 calendar:
   current_nfl_season: 2026
-  offseason_period_1_start: "2026-01-06"          # day after your 2025 championship game
-  offseason_period_1_end:   "2026-04-30"          # 2026 rookie draft date — adjust
-  offseason_period_2_start: "2026-05-01"          # day after rookie draft
-  fantasy_season_start:     "2026-09-03"          # 1 week before NFL Week 1
-  trade_deadline_week:      13                     # "Starting Week 13, Trades will be suspended"
-  playoffs_start_week:      15
-  playoffs_end_week:        17                     # championship plays in week 17
-
-# =============================================================================
-# RULES
-# =============================================================================
+  offseason_period_1_start: '2026-01-06'
+  offseason_period_1_end: '2026-04-30'
+  offseason_period_2_start: '2026-05-01'
+  fantasy_season_start: '2026-09-03'
+  trade_deadline_week: 13
+  playoffs_start_week: 15
+  playoffs_end_week: 17
 rules:
-
-  # ---------------------------------------------------------------------------
-  # Article XI — Trades
-  # "Starting Week 13, Trades will be suspended through playoffs and championship."
-  # ---------------------------------------------------------------------------
-  - id: trade_deadline
-    enabled: true
-    severity: BLOCK
-    params:
-      deadline_week: 13                            # block any trade with created_at >= Week 13 start
-      include_playoffs: true                       # trades through championship blocked
-      message: "Trade deadline violation. Article XI: trades suspended starting Week 13."
-
-  # ---------------------------------------------------------------------------
-  # Article V — Draft
-  # "There are no restrictions on trades" (for picks)
-  # Explicitly DISABLED — this league allows unlimited future pick trading
-  # ---------------------------------------------------------------------------
-  - id: pick_trade_window
-    enabled: false
-    severity: FLAG
-    params:
-      # left blank — disabled per Article V
-
-  # ---------------------------------------------------------------------------
-  # Article XIII — Amendments and Voting (HIGHEST LEVERAGE RULE)
-  # "No changes to the league rules will be made outside the scope of the
-  # Off-Season Period 1 window."
-  # ---------------------------------------------------------------------------
-  - id: settings_changed
-    enabled: true
-    severity: BLOCK                                # not just flag — Article XIII is absolute
-    params:
-      enforce_amendments_window: true              # only allow changes during off-season period 1
-      ignore_keys:                                 # cosmetic only
-        - "name"
-        - "avatar"
-        - "metadata.description"
-        - "metadata.keeper_deadline"
-      message: "Article XIII violation: settings changed outside Off-Season Period 1 window."
-
-  # ---------------------------------------------------------------------------
-  # Article XV — Commissioner Authority
-  # Sole commissioner is Ryan Bartlett. Any co-commish addition or removal
-  # of commish role should be flagged immediately.
-  # ---------------------------------------------------------------------------
-  - id: commish_change
-    enabled: true
-    severity: FLAG
-    params:
-      expected_commissioners:
-        - "REPLACE_WITH_YOUR_SLEEPER_USER_ID"
-
-  # ---------------------------------------------------------------------------
-  # Article VII — Roster
-  # 11 starters + 17 bench + 4 IR + 3 taxi = 35 total spots
-  # Position composition enforced by Sleeper — bot just sanity-checks total.
-  # ---------------------------------------------------------------------------
-  - id: roster_size
-    enabled: true
-    severity: FLAG                                 # Sleeper enforces; FLAG only as belt-and-suspenders
-    params:
-      only_in_season: true                         # skip evaluation unless league.status == in_season;
-                                                   #   pre-draft dynasty rosters legitimately exceed 28
-      max_active: 28                               # 11 starters + 17 bench
-      max_ir: 4
-      max_taxi: 3
-
-  # ---------------------------------------------------------------------------
-  # Article VII — Taxi Squad (CUSTOM CHECK — beyond v1 spec)
-  # "Only players with 2 years or less of experience may be allowed on the
-  # Taxi Squad. Players with more than 2 years of experience must be activated
-  # from the Taxi Squad. The deadline to move players onto the Taxi Squad is
-  # the start of the first game of the regular season."
-  # ---------------------------------------------------------------------------
-  - id: taxi_eligibility
-    enabled: true
-    severity: BLOCK
-    params:
-      max_years_experience: 2                      # uses player's `years_exp` from Sleeper
-      add_deadline: "fantasy_season_start"         # reference to calendar key above
-      message: "Article VII: taxi squad addition violates eligibility (>2 yrs exp or after deadline)."
-
-  # ---------------------------------------------------------------------------
-  # Article XIV — Roster Oversights (HIGH-VALUE CUSTOM CHECK — beyond v1 spec)
-  # The constitution explicitly assigns this duty to the commissioner.
-  # "If an owner has a roster slot open leading into the day of a game ... but
-  # has a backup player (not on bye, or OUT) available on their bench, then the
-  # Commissioner will do their best to let the owner know of the oversight."
-  # 3 strikes per season = removal + forfeit of buy-in.
-  # ---------------------------------------------------------------------------
-  - id: roster_oversight
-    enabled: true
-    severity: FLAG
-    params:
-      check_before_kickoff_minutes: 60             # alert manager 60 min before their player's game
-      eligible_replacement_filters:
-        exclude_bye: true
-        exclude_injury_statuses: ["Out", "IR", "Doubtful"]
-      strike_tracking:
-        enabled: true                              # CONFIRM: do you want auto-tracking?
-        max_strikes_before_removal: 3
-        reset_at_season_end_if_under: 3
-        notify_on_strike: true
-      message: "Article XIV: open starting slot detected with eligible bench replacement available."
-
-  # ---------------------------------------------------------------------------
-  # Article XI — Trades (collusion / fairness flag)
-  # "Vetoes are only allowed on very special occasions ... a 10/12 vote to veto"
-  # Bot flags suspicious value imbalance; veto remains human + league vote.
-  # ---------------------------------------------------------------------------
-  - id: lopsided_trade
-    enabled: true
-    severity: FLAG
-    params:
-      provider: "fantasycalc"
-      format: "dynasty_superflex"
-      tep_adjustment: true                         # league uses TE premium (Article VI)
-      value_diff_threshold_pct: 35
-      message: "Trade value imbalance >35% per FantasyCalc dynasty SF + TEP."
-
-  # ---------------------------------------------------------------------------
-  # Article VIII — Waivers (FAAB)
-  # "Minimum bid is $0." → faab_floor explicitly DISABLED
-  # ---------------------------------------------------------------------------
-  - id: faab_floor
-    enabled: false
-    severity: FLAG
-    params:
-      # disabled per Article VIII: $0 minimum bid allowed
-
-  # ---------------------------------------------------------------------------
-  # IR Eligibility (standard, not constitution-specific)
-  # Sleeper enforces this natively, included as belt-and-suspenders.
-  # ---------------------------------------------------------------------------
-  - id: ir_eligibility
-    enabled: true
-    severity: BLOCK
-    params:
-      allowed_nfl_statuses: ["IR", "PUP", "Out", "Suspended", "Doubtful"]
-
-# =============================================================================
-# DISCORD NOTIFICATION PREFERENCES
-# =============================================================================
+- id: trade_deadline
+  enabled: true
+  severity: BLOCK
+  params:
+    deadline_week: 13
+    include_playoffs: true
+    message: 'Trade deadline violation. Article XI: trades suspended starting Week 13.'
+- id: pick_trade_window
+  enabled: false
+  severity: FLAG
+  params: null
+- id: settings_changed
+  enabled: true
+  severity: BLOCK
+  params:
+    enforce_amendments_window: true
+    ignore_keys:
+    - name
+    - avatar
+    - metadata.description
+    - metadata.keeper_deadline
+    message: 'Article XIII violation: settings changed outside Off-Season Period 1 window.'
+- id: commish_change
+  enabled: true
+  severity: FLAG
+  params:
+    expected_commissioners:
+    - REPLACE_WITH_YOUR_SLEEPER_USER_ID
+- id: roster_size
+  enabled: true
+  severity: FLAG
+  params:
+    only_in_season: true
+    max_active: 28
+    max_ir: 4
+    max_taxi: 3
+- id: taxi_eligibility
+  enabled: true
+  severity: BLOCK
+  params:
+    max_years_experience: 2
+    add_deadline: fantasy_season_start
+    message: 'Article VII: taxi squad addition violates eligibility (>2 yrs exp or after deadline).'
+- id: roster_oversight
+  enabled: true
+  severity: FLAG
+  params:
+    check_before_kickoff_minutes: 60
+    eligible_replacement_filters:
+      exclude_bye: true
+      exclude_injury_statuses:
+      - Out
+      - IR
+      - Doubtful
+    strike_tracking:
+      enabled: true
+      max_strikes_before_removal: 3
+      reset_at_season_end_if_under: 3
+      notify_on_strike: true
+    message: 'Article XIV: open starting slot detected with eligible bench replacement available.'
+- id: lopsided_trade
+  enabled: true
+  severity: FLAG
+  params:
+    provider: fantasycalc
+    format: dynasty_superflex
+    tep_adjustment: true
+    value_diff_threshold_pct: 35
+    message: Trade value imbalance >35% per FantasyCalc dynasty SF + TEP.
+- id: faab_floor
+  enabled: false
+  severity: FLAG
+  params: null
+- id: settings_compliance
+  enabled: true
+  severity: FLAG
+  params:
+    ignore_settings_keys:
+    - leg
+    - daily_waivers_last_ran
+    - daily_waivers_base
+    ignore_league_keys:
+    - status
+    expected_league:
+      name: 512 Dynasty League
+      num_teams: 12
+      season: '2026'
+      season_type: regular
+      status: drafting
+      sport: nfl
+    expected_settings:
+      bench_lock: 0
+      best_ball: 0
+      capacity_override: 0
+      commissioner_direct_invite: 0
+      daily_waivers: 1
+      daily_waivers_base: 4
+      daily_waivers_days: 5599
+      daily_waivers_hour: 0
+      daily_waivers_last_ran: 17
+      disable_adds: 1
+      disable_trades: 0
+      draft_rounds: 4
+      faab_suggestions: 0
+      league_average_match: 0
+      leg: 1
+      max_keepers: 1
+      max_subs: 3
+      num_teams: 12
+      offseason_adds: 1
+      pick_trading: 1
+      playoff_round_type: 0
+      playoff_seed_type: 0
+      playoff_teams: 6
+      playoff_type: 1
+      playoff_week_start: 15
+      reserve_allow_cov: 1
+      reserve_allow_dnr: 0
+      reserve_allow_doubtful: 0
+      reserve_allow_na: 0
+      reserve_allow_out: 1
+      reserve_allow_sus: 0
+      reserve_slots: 4
+      squads: 1
+      start_week: 1
+      sub_lock_if_starter_active: 0
+      sub_start_time_eligibility: 0
+      taxi_allow_vets: 1
+      taxi_deadline: 4
+      taxi_slots: 3
+      taxi_years: 2
+      trade_deadline: 13
+      trade_review_days: 0
+      type: 2
+      veto_auto_poll: 0
+      veto_show_votes: 0
+      veto_votes_needed: 6
+      waiver_budget: 100
+      waiver_clear_days: 1
+      waiver_day_of_week: 2
+      waiver_type: 2
+    expected_scoring_settings:
+      blk_kick: 2.0
+      blk_kick_ret_yd: 0.0
+      bonus_pass_cmp_25: 0.0
+      bonus_pass_yd_300: 0.0
+      bonus_pass_yd_400: 0.0
+      bonus_rec_rb: 0.0
+      bonus_rec_te: 0.5
+      bonus_rec_wr: 0.0
+      bonus_rec_yd_100: 0.0
+      bonus_rec_yd_200: 0.0
+      bonus_rush_att_20: 0.0
+      bonus_rush_rec_yd_100: 0.0
+      bonus_rush_rec_yd_200: 0.0
+      bonus_rush_yd_100: 0.0
+      bonus_rush_yd_200: 0.0
+      def_2pt: 0.0
+      def_kr_yd: 0.0
+      def_pass_def: 0.0
+      def_pr_yd: 0.0
+      def_st_ff: 1.0
+      def_st_fum_rec: 1.0
+      def_st_td: 6.0
+      def_st_tkl_solo: 0.0
+      def_td: 6.0
+      ff: 1.0
+      fg_ret_yd: 0.0
+      fgm: 0.0
+      fgm_0_19: 3.0
+      fgm_20_29: 3.0
+      fgm_30_39: 3.0
+      fgm_40_49: 4.0
+      fgm_50p: 5.0
+      fgm_yds: 0.0
+      fgm_yds_over_30: 0.0
+      fgmiss: -1.0
+      fgmiss_0_19: 0.0
+      fgmiss_20_29: 0.0
+      fgmiss_30_39: 0.0
+      fgmiss_40_49: 0.0
+      fgmiss_50p: 0.0
+      fum: 0.0
+      fum_lost: -2.0
+      fum_rec: 2.0
+      fum_rec_td: 0.0
+      fum_ret_yd: 0.0
+      int: 2.0
+      int_ret_yd: 0.0
+      kr_yd: 0.0
+      pass_2pt: 2.0
+      pass_att: 0.0
+      pass_cmp: 0.0
+      pass_cmp_40p: 0.0
+      pass_fd: 0.0
+      pass_inc: 0.0
+      pass_int: -2.0
+      pass_int_td: 0.0
+      pass_sack: 0.0
+      pass_td: 6.0
+      pass_td_40p: 0.0
+      pass_yd: 0.04
+      pr_yd: 0.0
+      pts_allow: 0.0
+      pts_allow_0: 5.0
+      pts_allow_14_20: 1.0
+      pts_allow_1_6: 4.0
+      pts_allow_21_27: 0.0
+      pts_allow_28_34: -1.0
+      pts_allow_35p: -4.0
+      pts_allow_7_13: 3.0
+      qb_hit: 0.0
+      rec: 0.5
+      rec_0_4: 0.0
+      rec_10_19: 0.0
+      rec_20_29: 0.0
+      rec_2pt: 2.0
+      rec_30_39: 0.0
+      rec_40p: 0.0
+      rec_5_9: 0.0
+      rec_fd: 0.0
+      rec_td: 6.0
+      rec_td_40p: 0.0
+      rec_yd: 0.1
+      rush_2pt: 2.0
+      rush_40p: 0.0
+      rush_att: 0.0
+      rush_fd: 0.0
+      rush_td: 6.0
+      rush_td_40p: 0.0
+      rush_yd: 0.1
+      sack: 1.0
+      sack_yd: 0.0
+      safe: 2.0
+      st_ff: 0.0
+      st_fum_rec: 0.0
+      st_td: 6.0
+      st_tkl_solo: 0.0
+      tkl: 0.0
+      tkl_ast: 0.0
+      tkl_loss: 0.0
+      tkl_solo: 0.0
+      xpm: 1.0
+      xpmiss: -1.0
+      yds_allow: 0.0
+      yds_allow_0_100: 5.0
+      yds_allow_100_199: 3.0
+      yds_allow_200_299: 2.0
+      yds_allow_300_349: 0.0
+      yds_allow_350_399: -1.0
+      yds_allow_400_449: -3.0
+      yds_allow_450_499: -5.0
+      yds_allow_500_549: -6.0
+      yds_allow_550p: -7.0
+    expected_roster_positions:
+    - QB
+    - RB
+    - RB
+    - WR
+    - WR
+    - WR
+    - TE
+    - FLEX
+    - FLEX
+    - FLEX
+    - SUPER_FLEX
+    - BN
+    - BN
+    - BN
+    - BN
+    - BN
+    - BN
+    - BN
+    - BN
+    - BN
+    - BN
+    - BN
+    - BN
+    - BN
+    - BN
+    - BN
+    - BN
+    - BN
+    expected_user_ids:
+    - '335897534494965760'
+    - '337299258635976704'
+    - '700932657130827776'
+    - '702688504131432448'
+    - '712412888240812032'
+    - '712418427393859584'
+    - '713066435739471872'
+    - '713096070669885440'
+    - '713106903680483328'
+    - '713152029559721984'
+    - '713511111390990336'
+    - '713519275406610432'
+    expected_roster_owners:
+      '1': '337299258635976704'
+      '2': '335897534494965760'
+      '3': '700932657130827776'
+      '4': '702688504131432448'
+      '5': '712412888240812032'
+      '6': '712418427393859584'
+      '7': '713066435739471872'
+      '8': '713096070669885440'
+      '9': '713106903680483328'
+      '10': '713152029559721984'
+      '11': '713511111390990336'
+      '12': '713519275406610432'
+    expected_draft:
+      draft_id: '1312238972746874880'
+      type: linear
+      rounds: 4
+      pick_timer: 14400
+      autopause_enabled: 1
+      autopause_start_time: 180
+      autopause_end_time: 900
+      cpu_autopick: 1
+      reversal_round: 0
+- id: ir_eligibility
+  enabled: true
+  severity: BLOCK
+  params:
+    allowed_nfl_statuses:
+    - IR
+    - PUP
+    - Out
+    - Suspended
+    - Doubtful
 notifications:
-  alert_channel_id: "REPLACE_WITH_DISCORD_CHANNEL_ID"
+  alert_channel_id: REPLACE_WITH_DISCORD_CHANNEL_ID
   weekly_digest:
     enabled: true
-    day: "monday"
-    time_cst: "09:00"
+    day: monday
+    time_cst: 09:00
     include:
-      - settings_drift_summary                     # any changes detected vs last week
-      - strike_standings                           # Article XIV strike count per manager
-      - pending_decisions                          # alerts you haven't actioned
-
-  startup_message: true                            # post "bot online" each restart
-  bootstrap_silent: true                           # never alert on cold-start ingest
-
-# =============================================================================
-# RULES BEYOND v1 ARCHITECTURE SPEC
-# These require custom check implementations in src/rules/checks/.
-# Prompt Claude Code in Phase 2+ to add these:
-#   - taxi_eligibility.py    (Article VII)
-#   - roster_oversight.py    (Article XIV — highest operational value)
-#   - settings_changed.py    extended with `enforce_amendments_window` (Article XIII)
-# =============================================================================
+    - settings_drift_summary
+    - strike_standings
+    - pending_decisions
+  startup_message: true
+  bootstrap_silent: true
