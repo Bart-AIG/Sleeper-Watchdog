@@ -1,0 +1,193 @@
+# =============================================================================
+# 512 Dynasty Fantasy Football — Constitution Rules
+# Source: 512_Dynasty_Fantasy_Football_Constitution.docx
+# League: 12-team Superflex TE Premium Dynasty
+# Commissioner: Ryan Bartlett
+# =============================================================================
+
+league_id: "REPLACE_WITH_YOUR_LEAGUE_ID"          # from sleeper.com/leagues/<this_id>/...
+league_name: "512 Dynasty"
+notification_channel_id: "REPLACE_WITH_DISCORD_CHANNEL_ID"
+polling_seconds: 120
+
+# League calendar — manually set each season
+# Article X defines Off-Season Period 1 as day-after-championship to day-of-rookie-draft
+# Off-Season Period 2 = day-after-rookie-draft to 1 week before NFL Week 1
+calendar:
+  current_nfl_season: 2026
+  offseason_period_1_start: "2026-01-06"          # day after your 2025 championship game
+  offseason_period_1_end:   "2026-04-30"          # 2026 rookie draft date — adjust
+  offseason_period_2_start: "2026-05-01"          # day after rookie draft
+  fantasy_season_start:     "2026-09-03"          # 1 week before NFL Week 1
+  trade_deadline_week:      13                     # "Starting Week 13, Trades will be suspended"
+  playoffs_start_week:      15
+  playoffs_end_week:        17                     # championship plays in week 17
+
+# =============================================================================
+# RULES
+# =============================================================================
+rules:
+
+  # ---------------------------------------------------------------------------
+  # Article XI — Trades
+  # "Starting Week 13, Trades will be suspended through playoffs and championship."
+  # ---------------------------------------------------------------------------
+  - id: trade_deadline
+    enabled: true
+    severity: BLOCK
+    params:
+      deadline_week: 13                            # block any trade with created_at >= Week 13 start
+      include_playoffs: true                       # trades through championship blocked
+      message: "Trade deadline violation. Article XI: trades suspended starting Week 13."
+
+  # ---------------------------------------------------------------------------
+  # Article V — Draft
+  # "There are no restrictions on trades" (for picks)
+  # Explicitly DISABLED — this league allows unlimited future pick trading
+  # ---------------------------------------------------------------------------
+  - id: pick_trade_window
+    enabled: false
+    severity: FLAG
+    params:
+      # left blank — disabled per Article V
+
+  # ---------------------------------------------------------------------------
+  # Article XIII — Amendments and Voting (HIGHEST LEVERAGE RULE)
+  # "No changes to the league rules will be made outside the scope of the
+  # Off-Season Period 1 window."
+  # ---------------------------------------------------------------------------
+  - id: settings_changed
+    enabled: true
+    severity: BLOCK                                # not just flag — Article XIII is absolute
+    params:
+      enforce_amendments_window: true              # only allow changes during off-season period 1
+      ignore_keys:                                 # cosmetic only
+        - "name"
+        - "avatar"
+        - "metadata.description"
+        - "metadata.keeper_deadline"
+      message: "Article XIII violation: settings changed outside Off-Season Period 1 window."
+
+  # ---------------------------------------------------------------------------
+  # Article XV — Commissioner Authority
+  # Sole commissioner is Ryan Bartlett. Any co-commish addition or removal
+  # of commish role should be flagged immediately.
+  # ---------------------------------------------------------------------------
+  - id: commish_change
+    enabled: true
+    severity: FLAG
+    params:
+      expected_commissioners:
+        - "REPLACE_WITH_YOUR_SLEEPER_USER_ID"
+
+  # ---------------------------------------------------------------------------
+  # Article VII — Roster
+  # 11 starters + 17 bench + 4 IR + 3 taxi = 35 total spots
+  # Position composition enforced by Sleeper — bot just sanity-checks total.
+  # ---------------------------------------------------------------------------
+  - id: roster_size
+    enabled: true
+    severity: FLAG                                 # Sleeper enforces; FLAG only as belt-and-suspenders
+    params:
+      max_active: 28                               # 11 starters + 17 bench
+      max_ir: 4
+      max_taxi: 3
+
+  # ---------------------------------------------------------------------------
+  # Article VII — Taxi Squad (CUSTOM CHECK — beyond v1 spec)
+  # "Only players with 2 years or less of experience may be allowed on the
+  # Taxi Squad. Players with more than 2 years of experience must be activated
+  # from the Taxi Squad. The deadline to move players onto the Taxi Squad is
+  # the start of the first game of the regular season."
+  # ---------------------------------------------------------------------------
+  - id: taxi_eligibility
+    enabled: true
+    severity: BLOCK
+    params:
+      max_years_experience: 2                      # uses player's `years_exp` from Sleeper
+      add_deadline: "fantasy_season_start"         # reference to calendar key above
+      message: "Article VII: taxi squad addition violates eligibility (>2 yrs exp or after deadline)."
+
+  # ---------------------------------------------------------------------------
+  # Article XIV — Roster Oversights (HIGH-VALUE CUSTOM CHECK — beyond v1 spec)
+  # The constitution explicitly assigns this duty to the commissioner.
+  # "If an owner has a roster slot open leading into the day of a game ... but
+  # has a backup player (not on bye, or OUT) available on their bench, then the
+  # Commissioner will do their best to let the owner know of the oversight."
+  # 3 strikes per season = removal + forfeit of buy-in.
+  # ---------------------------------------------------------------------------
+  - id: roster_oversight
+    enabled: true
+    severity: FLAG
+    params:
+      check_before_kickoff_minutes: 60             # alert manager 60 min before their player's game
+      eligible_replacement_filters:
+        exclude_bye: true
+        exclude_injury_statuses: ["Out", "IR", "Doubtful"]
+      strike_tracking:
+        enabled: true                              # CONFIRM: do you want auto-tracking?
+        max_strikes_before_removal: 3
+        reset_at_season_end_if_under: 3
+        notify_on_strike: true
+      message: "Article XIV: open starting slot detected with eligible bench replacement available."
+
+  # ---------------------------------------------------------------------------
+  # Article XI — Trades (collusion / fairness flag)
+  # "Vetoes are only allowed on very special occasions ... a 10/12 vote to veto"
+  # Bot flags suspicious value imbalance; veto remains human + league vote.
+  # ---------------------------------------------------------------------------
+  - id: lopsided_trade
+    enabled: true
+    severity: FLAG
+    params:
+      provider: "fantasycalc"
+      format: "dynasty_superflex"
+      tep_adjustment: true                         # league uses TE premium (Article VI)
+      value_diff_threshold_pct: 35
+      message: "Trade value imbalance >35% per FantasyCalc dynasty SF + TEP."
+
+  # ---------------------------------------------------------------------------
+  # Article VIII — Waivers (FAAB)
+  # "Minimum bid is $0." → faab_floor explicitly DISABLED
+  # ---------------------------------------------------------------------------
+  - id: faab_floor
+    enabled: false
+    severity: FLAG
+    params:
+      # disabled per Article VIII: $0 minimum bid allowed
+
+  # ---------------------------------------------------------------------------
+  # IR Eligibility (standard, not constitution-specific)
+  # Sleeper enforces this natively, included as belt-and-suspenders.
+  # ---------------------------------------------------------------------------
+  - id: ir_eligibility
+    enabled: true
+    severity: BLOCK
+    params:
+      allowed_nfl_statuses: ["IR", "PUP", "Out", "Suspended", "Doubtful"]
+
+# =============================================================================
+# DISCORD NOTIFICATION PREFERENCES
+# =============================================================================
+notifications:
+  alert_channel_id: "REPLACE_WITH_DISCORD_CHANNEL_ID"
+  weekly_digest:
+    enabled: true
+    day: "monday"
+    time_cst: "09:00"
+    include:
+      - settings_drift_summary                     # any changes detected vs last week
+      - strike_standings                           # Article XIV strike count per manager
+      - pending_decisions                          # alerts you haven't actioned
+
+  startup_message: true                            # post "bot online" each restart
+  bootstrap_silent: true                           # never alert on cold-start ingest
+
+# =============================================================================
+# RULES BEYOND v1 ARCHITECTURE SPEC
+# These require custom check implementations in src/rules/checks/.
+# Prompt Claude Code in Phase 2+ to add these:
+#   - taxi_eligibility.py    (Article VII)
+#   - roster_oversight.py    (Article XIV — highest operational value)
+#   - settings_changed.py    extended with `enforce_amendments_window` (Article XIII)
+# =============================================================================
