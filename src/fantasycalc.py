@@ -22,7 +22,8 @@ log = structlog.get_logger(__name__)
 
 VALUES_URL = "https://api.fantasycalc.com/values/current"
 CACHE_TTL_SEC = 24 * 60 * 60
-PICK_NAME_RE = re.compile(r"^(\d{4})\s+Pick\s+(\d+)\.(\d+)$")
+PICK_NAME_RE_SPECIFIC = re.compile(r"^(\d{4})\s+Pick\s+(\d+)\.(\d+)$")
+PICK_NAME_RE_GENERIC = re.compile(r"^(\d{4})\s+(\d+)(?:st|nd|rd|th)$", re.IGNORECASE)
 
 
 class FantasyCalcClient:
@@ -64,24 +65,39 @@ class FantasyCalcClient:
         response = self._client.get(VALUES_URL, params=self._params)
         response.raise_for_status()
         raw = response.json()
-        slim = {"params": self._params, "values_by_sleeper_id": {}, "pick_round_medians": {}}
+        slim = {"params": self._params, "values_by_sleeper_id": {}, "pick_round_values": {}}
 
-        picks_by_round: dict[tuple[str, int], list[int]] = {}
+        # FantasyCalc has two pick formats: specific ("2026 Pick 1.07") for
+        # current-year picks with known slots, and generic ("2027 1st") for
+        # future years. Prefer specific (median of all slots) for accuracy;
+        # fall back to generic where specific is missing.
+        specific_by_round: dict[tuple[str, int], list[int]] = {}
+        generic_by_round: dict[tuple[str, int], int] = {}
         for entry in raw:
             player = entry.get("player") or {}
             value = int(entry.get("value", 0))
             sleeper_id = player.get("sleeperId")
             if sleeper_id:
                 slim["values_by_sleeper_id"][str(sleeper_id)] = value
-            if player.get("position") == "PICK":
-                m = PICK_NAME_RE.match(player.get("name", ""))
-                if m:
-                    season, round_no, _slot = m.group(1), int(m.group(2)), int(m.group(3))
-                    picks_by_round.setdefault((season, round_no), []).append(value)
+            if player.get("position") != "PICK":
+                continue
+            name = player.get("name", "")
+            m = PICK_NAME_RE_SPECIFIC.match(name)
+            if m:
+                specific_by_round.setdefault((m.group(1), int(m.group(2))), []).append(value)
+                continue
+            m = PICK_NAME_RE_GENERIC.match(name)
+            if m:
+                generic_by_round[(m.group(1), int(m.group(2)))] = value
 
-        slim["pick_round_medians"] = {
-            f"{season}:{round_no}": int(median(vals))
-            for (season, round_no), vals in picks_by_round.items()
+        round_values: dict[tuple[str, int], int] = {}
+        for key in set(specific_by_round) | set(generic_by_round):
+            if key in specific_by_round:
+                round_values[key] = int(median(specific_by_round[key]))
+            else:
+                round_values[key] = generic_by_round[key]
+        slim["pick_round_values"] = {
+            f"{season}:{round_no}": v for (season, round_no), v in round_values.items()
         }
 
         self._cache_path.parent.mkdir(parents=True, exist_ok=True)
@@ -96,21 +112,29 @@ class FantasyCalcClient:
         return age < CACHE_TTL_SEC
 
     def player_value(self, sleeper_id: str | None) -> int:
+        self._ensure_loaded()
         if not sleeper_id:
             return 0
-        if self._values is None:
-            data = self._load()
-            self._values = data["values_by_sleeper_id"]
-            self._pick_round_medians = {
-                tuple(k.split(":")): v for k, v in data["pick_round_medians"].items()
-            }
+        assert self._values is not None
         return int(self._values.get(str(sleeper_id), 0))
 
     def pick_value(self, season: str | int, round_no: int) -> int:
-        if self._pick_round_medians is None:
-            self.player_value(None)  # force load
+        self._ensure_loaded()
         assert self._pick_round_medians is not None
         return int(self._pick_round_medians.get((str(season), int(round_no)), 0))
+
+    def _ensure_loaded(self) -> None:
+        if self._values is not None:
+            return
+        data = self._load()
+        self._values = data["values_by_sleeper_id"]
+        # Legacy cache files used "pick_round_medians"; new cache uses
+        # "pick_round_values" (rebuild on next miss).
+        raw_rounds = data.get("pick_round_values") or data.get("pick_round_medians") or {}
+        self._pick_round_medians = {}
+        for k, v in raw_rounds.items():
+            season, round_str = k.split(":")
+            self._pick_round_medians[(season, int(round_str))] = int(v)
 
 
 def grade_trade(

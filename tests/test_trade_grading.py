@@ -4,7 +4,12 @@ from __future__ import annotations
 
 from typing import Any
 
-from src.fantasycalc import grade_trade, letter_grade, trade_imbalance_percent
+import json
+from pathlib import Path
+
+import pytest
+
+from src.fantasycalc import FantasyCalcClient, grade_trade, letter_grade, trade_imbalance_percent
 from src.rules.checks.lopsided_trade import LopsidedTrade
 from src.rules.engine import RuleContext
 from src.rules.result import Severity
@@ -162,6 +167,74 @@ def test_lopsided_rule_silent_when_no_fantasycalc() -> None:
     tx = {"transaction_id": "t1", "type": "trade", "status": "complete", "roster_ids": [1, 2]}
     ctx = RuleContext(league_id="L1", league_name="Test", transactions=[tx], fantasycalc=None)
     assert LopsidedTrade().evaluate(ctx, {}) == []
+
+
+def _make_cache(tmp_path: Path) -> Path:
+    """Write a stub cache file with both specific and generic pick formats."""
+    cache = tmp_path / "fantasycalc.json"
+    cache.write_text(
+        json.dumps(
+            {
+                "params": {},
+                "values_by_sleeper_id": {"100": 5000, "200": 3000},
+                "pick_round_values": {
+                    "2026:1": 3200,    # would-be specific (median across slots)
+                    "2026:2": 1700,
+                    "2027:1": 3000,    # generic-only year
+                    "2028:3": 800,
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+    return cache
+
+
+def test_pick_value_returns_2026_specific_round_median(tmp_path: Path) -> None:
+    fc = FantasyCalcClient(cache_path=_make_cache(tmp_path))
+    assert fc.pick_value("2026", 1) == 3200
+    assert fc.pick_value("2026", 2) == 1700
+
+
+def test_pick_value_returns_generic_future_year_round(tmp_path: Path) -> None:
+    fc = FantasyCalcClient(cache_path=_make_cache(tmp_path))
+    assert fc.pick_value("2027", 1) == 3000
+    assert fc.pick_value("2028", 3) == 800
+
+
+def test_pick_value_accepts_int_or_str_season(tmp_path: Path) -> None:
+    fc = FantasyCalcClient(cache_path=_make_cache(tmp_path))
+    assert fc.pick_value(2026, 1) == 3200
+    assert fc.pick_value("2026", 1) == 3200
+
+
+def test_pick_value_unknown_round_returns_zero(tmp_path: Path) -> None:
+    fc = FantasyCalcClient(cache_path=_make_cache(tmp_path))
+    assert fc.pick_value("2099", 7) == 0
+
+
+def test_legacy_cache_with_pick_round_medians_still_loads(tmp_path: Path) -> None:
+    cache = tmp_path / "old.json"
+    cache.write_text(
+        json.dumps(
+            {
+                "params": {},
+                "values_by_sleeper_id": {"X": 1},
+                "pick_round_medians": {"2026:1": 3222},  # legacy field name
+            }
+        ),
+        encoding="utf-8",
+    )
+    fc = FantasyCalcClient(cache_path=cache)
+    assert fc.pick_value("2026", 1) == 3222
+
+
+def test_player_value_returns_zero_for_none() -> None:
+    fc = FantasyCalcClient(cache_path=Path("/nonexistent"))
+    fc._values = {}  # bypass network
+    fc._pick_round_medians = {}
+    assert fc.player_value(None) == 0
+    assert fc.player_value("") == 0
 
 
 def test_lopsided_rule_silent_for_even_trade() -> None:
