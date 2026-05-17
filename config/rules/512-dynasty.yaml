@@ -97,7 +97,7 @@ rules:
     - status
     expected_league:
       name: 512 Dynasty League
-      num_teams: 12
+      total_rosters: 12
       season: '2026'
       season_type: regular
       status: drafting

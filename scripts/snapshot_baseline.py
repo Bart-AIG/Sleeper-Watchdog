@@ -28,10 +28,12 @@ def build_baseline(league_id: str) -> dict[str, Any]:
         rosters = sleeper.get_rosters(league_id)
         drafts = sleeper.get_drafts(league_id)
 
+    # Use Sleeper's actual API field names so the rule's ctx.league.get(key)
+    # matches without any aliasing.
     baseline: dict[str, Any] = {
         "expected_league": {
             "name": league.get("name"),
-            "num_teams": league.get("total_rosters"),
+            "total_rosters": league.get("total_rosters"),
             "season": league.get("season"),
             "season_type": league.get("season_type"),
             "status": league.get("status"),
