@@ -1,0 +1,51 @@
+[
+  {
+    "transaction_id": "1361763263972409344",
+    "status": "complete",
+    "type": "trade",
+    "creator": "347065452184215552",
+    "roster_ids": [3, 4],
+    "consenter_ids": [3, 4],
+    "adds": {"12501": 4, "12506": 3, "12518": 4, "12519": 3},
+    "drops": {"12501": 3, "12506": 4, "12518": 3, "12519": 4},
+    "draft_picks": [
+      {"round": 4, "season": "2026", "league_id": null, "roster_id": 4, "owner_id": 3, "previous_owner_id": 4},
+      {"round": 5, "season": "2026", "league_id": null, "roster_id": 4, "owner_id": 3, "previous_owner_id": 4}
+    ],
+    "waiver_budget": [],
+    "settings": {"is_counter": 1},
+    "leg": 1,
+    "created": 1779032171771,
+    "status_updated": 1779033680116
+  },
+  {
+    "transaction_id": "1361800000000000001",
+    "status": "complete",
+    "type": "waiver",
+    "creator": "84725690905542656",
+    "roster_ids": [2],
+    "adds": {"6770": 2},
+    "drops": null,
+    "draft_picks": [],
+    "waiver_budget": [],
+    "settings": {"waiver_bid": 12, "seq": 1},
+    "leg": 1,
+    "created": 1779100000000,
+    "status_updated": 1779100050000
+  },
+  {
+    "transaction_id": "1361900000000000002",
+    "status": "complete",
+    "type": "free_agent",
+    "creator": "95344311310630912",
+    "roster_ids": [3],
+    "adds": {"9509": 3},
+    "drops": null,
+    "draft_picks": [],
+    "waiver_budget": [{"sender": 3, "receiver": 1, "amount": 5}],
+    "settings": null,
+    "leg": 1,
+    "created": 1779200000000,
+    "status_updated": 1779200001000
+  }
+]

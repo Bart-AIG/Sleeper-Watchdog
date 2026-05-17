@@ -14,6 +14,11 @@ import structlog
 
 log = structlog.get_logger(__name__)
 
+COLOR_GREEN = 0x57F287
+COLOR_BLUE = 0x3498DB
+COLOR_YELLOW = 0xF1C40F
+COLOR_RED = 0xE74C3C
+
 
 class DiscordNotifier:
     """Thin wrapper around a single Discord webhook URL."""
@@ -39,11 +44,122 @@ class DiscordNotifier:
 
 
 def build_hello_embed(now: datetime | None = None) -> dict[str, Any]:
-    """The Phase 1 'watchdog online' embed. No league context, just a heartbeat."""
+    """Phase 1 'watchdog online' heartbeat. Kept for manual testing."""
     ts = now or datetime.now(timezone.utc)
     return {
         "title": "Watchdog online",
-        "description": "Phase 1 hello: the GitHub Actions cron job reached Discord.",
-        "color": 0x57F287,
+        "description": "Heartbeat from the GitHub Actions cron job.",
+        "color": COLOR_GREEN,
         "footer": {"text": f"Sleeper Watchdog · {ts.strftime('%Y-%m-%d %H:%M UTC')}"},
     }
+
+
+def build_transaction_embed(
+    tx: dict[str, Any],
+    league_id: str,
+    league_name: str,
+    roster_to_team: dict[int, str],
+    players: dict[str, dict[str, Any]],
+    now: datetime | None = None,
+) -> dict[str, Any]:
+    """Build a Discord embed describing one Sleeper transaction.
+
+    Phase 2: descriptive only, no rule verdicts. The shape stays consistent so
+    Phase 3 can layer severity colors and rule fields on top.
+    """
+    ts = now or datetime.now(timezone.utc)
+    tx_type = tx.get("type", "transaction")
+    tx_id = str(tx.get("transaction_id", ""))
+    status = tx.get("status", "")
+    color = COLOR_BLUE if status == "complete" else COLOR_YELLOW
+
+    teams_field = _format_teams(tx, roster_to_team)
+    fields: list[dict[str, Any]] = [
+        {"name": "Type", "value": tx_type, "inline": True},
+        {"name": "Status", "value": status or "?", "inline": True},
+        {"name": "Teams", "value": teams_field or "?", "inline": False},
+    ]
+
+    adds_lines = _format_player_moves(tx.get("adds") or {}, players, roster_to_team, "+")
+    drops_lines = _format_player_moves(tx.get("drops") or {}, players, roster_to_team, "-")
+    if adds_lines:
+        fields.append({"name": "Adds", "value": "\n".join(adds_lines), "inline": False})
+    if drops_lines:
+        fields.append({"name": "Drops", "value": "\n".join(drops_lines), "inline": False})
+
+    picks_lines = _format_picks(tx.get("draft_picks") or [], roster_to_team)
+    if picks_lines:
+        fields.append({"name": "Draft picks", "value": "\n".join(picks_lines), "inline": False})
+
+    faab_lines = _format_waiver_budget(tx.get("waiver_budget") or [], roster_to_team)
+    if faab_lines:
+        fields.append({"name": "FAAB", "value": "\n".join(faab_lines), "inline": False})
+
+    fields.append(
+        {
+            "name": "Link",
+            "value": f"[Open in Sleeper](https://sleeper.com/leagues/{league_id}/transactions)",
+            "inline": False,
+        }
+    )
+
+    return {
+        "title": f"{tx_type.title()} in {league_name}",
+        "description": f"Transaction `{tx_id}`",
+        "color": color,
+        "fields": fields,
+        "footer": {"text": f"Sleeper Watchdog · {ts.strftime('%Y-%m-%d %H:%M UTC')}"},
+    }
+
+
+def _team_label(roster_id: int, roster_to_team: dict[int, str]) -> str:
+    return roster_to_team.get(roster_id, f"Roster {roster_id}")
+
+
+def _format_teams(tx: dict[str, Any], roster_to_team: dict[int, str]) -> str:
+    roster_ids = tx.get("roster_ids") or []
+    return ", ".join(_team_label(int(r), roster_to_team) for r in roster_ids)
+
+
+def _player_label(player_id: str, players: dict[str, dict[str, Any]]) -> str:
+    p = players.get(player_id) or {}
+    name = p.get("name") or player_id
+    pos = p.get("position")
+    team = p.get("team")
+    suffix_parts = [x for x in (pos, team) if x]
+    return f"{name} ({', '.join(suffix_parts)})" if suffix_parts else name
+
+
+def _format_player_moves(
+    moves: dict[str, int],
+    players: dict[str, dict[str, Any]],
+    roster_to_team: dict[int, str],
+    prefix: str,
+) -> list[str]:
+    return [
+        f"{prefix} {_player_label(pid, players)} -> {_team_label(int(rid), roster_to_team)}"
+        for pid, rid in moves.items()
+    ]
+
+
+def _format_picks(picks: list[dict[str, Any]], roster_to_team: dict[int, str]) -> list[str]:
+    lines = []
+    for pick in picks:
+        season = pick.get("season")
+        rnd = pick.get("round")
+        new_owner = _team_label(int(pick.get("owner_id", 0)), roster_to_team)
+        prev_owner = _team_label(int(pick.get("previous_owner_id", 0)), roster_to_team)
+        lines.append(f"{season} round {rnd}: {prev_owner} -> {new_owner}")
+    return lines
+
+
+def _format_waiver_budget(
+    moves: list[dict[str, Any]], roster_to_team: dict[int, str]
+) -> list[str]:
+    lines = []
+    for m in moves:
+        sender = _team_label(int(m.get("sender", 0)), roster_to_team)
+        receiver = _team_label(int(m.get("receiver", 0)), roster_to_team)
+        amount = m.get("amount", 0)
+        lines.append(f"${amount} FAAB: {sender} -> {receiver}")
+    return lines
