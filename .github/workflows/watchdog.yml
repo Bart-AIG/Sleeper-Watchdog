@@ -42,5 +42,12 @@ jobs:
           git add data/
           if ! git diff --staged --quiet; then
             git commit -m "state: $(date -u +%Y-%m-%dT%H:%M:%SZ)"
-            git push
+            # Pull before push to handle the race when a code push or another
+            # cron tick lands on main between checkout and our push. Rebase
+            # our state commit on top; --autostash protects any in-flight work.
+            for attempt in 1 2 3; do
+              git pull --rebase --autostash origin main && git push && break
+              echo "push attempt $attempt failed, retrying"
+              sleep $((attempt * 5))
+            done
           fi
