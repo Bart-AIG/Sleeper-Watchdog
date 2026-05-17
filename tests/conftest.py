@@ -34,3 +34,13 @@ def sample_transactions() -> list[dict[str, Any]]:
 @pytest.fixture
 def sample_players() -> dict[str, dict[str, Any]]:
     return _load("sample_players.json")
+
+
+@pytest.fixture
+def sample_draft() -> dict[str, Any]:
+    return _load("sample_draft.json")
+
+
+@pytest.fixture
+def sample_draft_picks() -> list[dict[str, Any]]:
+    return _load("sample_draft_picks.json")

@@ -27,6 +27,8 @@ class LeagueState(BaseModel):
     last_run_at: datetime | None = None
     current_nfl_week: int = 0
     seen_transaction_ids: list[str] = Field(default_factory=list)
+    seen_draft_ids: list[str] = Field(default_factory=list)
+    seen_draft_pick_keys: list[str] = Field(default_factory=list)
     alerts_posted: list[AlertRecord] = Field(default_factory=list)
 
     def is_bootstrapped(self) -> bool:

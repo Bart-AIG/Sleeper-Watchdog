@@ -60,6 +60,12 @@ class SleeperClient:
     def get_traded_picks(self, league_id: str) -> list[dict[str, Any]]:
         return self._get(f"/league/{league_id}/traded_picks")
 
+    def get_drafts(self, league_id: str) -> list[dict[str, Any]]:
+        return self._get(f"/league/{league_id}/drafts")
+
+    def get_draft_picks(self, draft_id: str) -> list[dict[str, Any]]:
+        return self._get(f"/draft/{draft_id}/picks")
+
     def get_players(self) -> dict[str, dict[str, Any]]:
         """Return a slim {player_id: {name, team, position}} map, cached 24h on disk."""
         if self._cache_is_fresh():

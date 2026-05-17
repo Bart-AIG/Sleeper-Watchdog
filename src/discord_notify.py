@@ -153,6 +153,63 @@ def _format_picks(picks: list[dict[str, Any]], roster_to_team: dict[int, str]) -
     return lines
 
 
+def build_draft_pick_embed(
+    pick: dict[str, Any],
+    draft: dict[str, Any],
+    league_id: str,
+    league_name: str,
+    roster_to_team: dict[int, str],
+    now: datetime | None = None,
+) -> dict[str, Any]:
+    """Build a Discord embed describing one draft pick.
+
+    Pick metadata already includes player name/team/position so we do not need
+    the players cache here.
+    """
+    ts = now or datetime.now(timezone.utc)
+    overall = pick.get("pick_no")
+    rnd = pick.get("round")
+    slot = pick.get("draft_slot")
+    roster_id = pick.get("roster_id")
+    team_label = (
+        roster_to_team.get(int(roster_id), f"Roster {roster_id}")
+        if roster_id is not None
+        else "?"
+    )
+
+    md = pick.get("metadata") or {}
+    player_name = f"{md.get('first_name', '')} {md.get('last_name', '')}".strip() or pick.get(
+        "player_id", "?"
+    )
+    position = md.get("position") or "?"
+    nfl_team = md.get("team") or "FA"
+
+    is_keeper = bool(pick.get("is_keeper"))
+    keeper_suffix = " (keeper)" if is_keeper else ""
+
+    draft_id = str(pick.get("draft_id") or draft.get("draft_id", ""))
+    season = draft.get("season", "")
+
+    fields: list[dict[str, Any]] = [
+        {"name": "Team", "value": team_label, "inline": True},
+        {"name": "Player", "value": f"{player_name} ({position}, {nfl_team}){keeper_suffix}", "inline": True},
+        {"name": "Pick", "value": f"Round {rnd}, slot {slot} (overall #{overall})", "inline": False},
+        {
+            "name": "Link",
+            "value": f"[Open draft in Sleeper](https://sleeper.com/draft/nfl/{draft_id})",
+            "inline": False,
+        },
+    ]
+
+    return {
+        "title": f"{season} Pick {rnd}.{int(slot):02d} - {league_name}",
+        "description": f"Overall #{overall}: {team_label} selects {player_name}",
+        "color": COLOR_BLUE,
+        "fields": fields,
+        "footer": {"text": f"Sleeper Watchdog · {ts.strftime('%Y-%m-%d %H:%M UTC')}"},
+    }
+
+
 def _format_waiver_budget(
     moves: list[dict[str, Any]], roster_to_team: dict[int, str]
 ) -> list[str]:

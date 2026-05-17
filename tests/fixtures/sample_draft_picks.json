@@ -1,0 +1,53 @@
+[
+  {
+    "draft_id": "1312238972746874880",
+    "draft_slot": 1,
+    "is_keeper": null,
+    "metadata": {
+      "first_name": "Jeremiyah",
+      "last_name": "Love",
+      "player_id": "13287",
+      "position": "RB",
+      "team": "ARI"
+    },
+    "pick_no": 1,
+    "picked_by": "713066435739471872",
+    "player_id": "13287",
+    "roster_id": 1,
+    "round": 1
+  },
+  {
+    "draft_id": "1312238972746874880",
+    "draft_slot": 2,
+    "is_keeper": null,
+    "metadata": {
+      "first_name": "Marvin",
+      "last_name": "Harrison Jr.",
+      "player_id": "12518",
+      "position": "WR",
+      "team": "ARI"
+    },
+    "pick_no": 2,
+    "picked_by": "84725690905542656",
+    "player_id": "12518",
+    "roster_id": 2,
+    "round": 1
+  },
+  {
+    "draft_id": "1312238972746874880",
+    "draft_slot": 3,
+    "is_keeper": true,
+    "metadata": {
+      "first_name": "Caleb",
+      "last_name": "Williams",
+      "player_id": "12501",
+      "position": "QB",
+      "team": "CHI"
+    },
+    "pick_no": 3,
+    "picked_by": "95344311310630912",
+    "player_id": "12501",
+    "roster_id": 3,
+    "round": 1
+  }
+]
