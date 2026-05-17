@@ -231,20 +231,38 @@ def process_rules(
     )
 
     posted_keys = {ar.key for ar in league_state.alerts_posted}
+    bootstrapped_rules = set(league_state.bootstrapped_rule_ids)
+
+    results_by_rule: dict[str, list] = {}
+    for r in evaluate_all(ctx, rules_yaml):
+        results_by_rule.setdefault(r.rule_id, []).append(r)
+
     new_alerts = 0
-    for result in evaluate_all(ctx, rules_yaml):
-        if result.alert_key and result.alert_key in posted_keys:
+    for rule_cfg in rules_yaml.get("rules", []):
+        if not rule_cfg.get("enabled"):
             continue
-        embed = build_rule_alert_embed(result, league_id, league_name)
-        notifier.post(embed)
-        league_state.alerts_posted.append(
-            AlertRecord(
-                key=result.alert_key,
-                posted_at=now_utc(),
-                severity=str(result.severity),
+        rid = rule_cfg["id"]
+        rule_results = results_by_rule.get(rid, [])
+
+        if rid not in bootstrapped_rules:
+            for r in rule_results:
+                if r.alert_key:
+                    league_state.alerts_posted.append(
+                        AlertRecord(key=r.alert_key, posted_at=now_utc(), severity=str(r.severity))
+                    )
+            league_state.bootstrapped_rule_ids.append(rid)
+            log.info("rule.bootstrapped", rule_id=rid, suppressed=len(rule_results))
+            continue
+
+        for r in rule_results:
+            if r.alert_key and r.alert_key in posted_keys:
+                continue
+            embed = build_rule_alert_embed(r, league_id, league_name)
+            notifier.post(embed)
+            league_state.alerts_posted.append(
+                AlertRecord(key=r.alert_key, posted_at=now_utc(), severity=str(r.severity))
             )
-        )
-        new_alerts += 1
+            new_alerts += 1
 
     log.info("rules.processed", new_alerts=new_alerts)
     return new_alerts

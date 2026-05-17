@@ -114,6 +114,50 @@ def test_lopsided_rule_fires_when_threshold_exceeded() -> None:
     assert "imbalance" in results[0].title.lower()
 
 
+def test_grade_trade_returns_none_when_player_value_missing() -> None:
+    tx = {
+        "type": "trade",
+        "status": "complete",
+        "roster_ids": [1, 2],
+        "adds": {"a": 2, "unknown": 1},
+        "drops": {"a": 1, "unknown": 2},
+        "draft_picks": [],
+    }
+    values = StubValues(players={"a": 5000})  # "unknown" missing
+    assert grade_trade(tx, values) is None
+
+
+def test_grade_trade_returns_none_when_pick_value_missing() -> None:
+    tx = {
+        "type": "trade",
+        "status": "complete",
+        "roster_ids": [1, 2],
+        "adds": {},
+        "drops": {},
+        "draft_picks": [{"round": 7, "season": "2099", "owner_id": 2, "previous_owner_id": 1}],
+    }
+    assert grade_trade(tx, StubValues()) is None
+
+
+def test_lopsided_rule_skips_ungradeable_trades() -> None:
+    tx = {
+        "transaction_id": "t1",
+        "type": "trade",
+        "status": "complete",
+        "roster_ids": [1, 2],
+        "adds": {"unknown_player": 2},
+        "drops": {"unknown_player": 1},
+    }
+    ctx = RuleContext(
+        league_id="L1",
+        league_name="Test",
+        transactions=[tx],
+        roster_to_team={1: "Team A", 2: "Team B"},
+        fantasycalc=StubValues(),
+    )
+    assert LopsidedTrade().evaluate(ctx, {"value_diff_threshold_pct": 35}) == []
+
+
 def test_lopsided_rule_silent_when_no_fantasycalc() -> None:
     tx = {"transaction_id": "t1", "type": "trade", "status": "complete", "roster_ids": [1, 2]}
     ctx = RuleContext(league_id="L1", league_name="Test", transactions=[tx], fantasycalc=None)

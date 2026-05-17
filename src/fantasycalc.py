@@ -115,8 +115,12 @@ class FantasyCalcClient:
 
 def grade_trade(
     transaction: dict[str, Any], values: "ValueLookup"
-) -> dict[int, dict[str, Any]]:
+) -> dict[int, dict[str, Any]] | None:
     """Compute per-roster value sent vs received for one completed trade.
+
+    Returns None if any asset in the trade has an unknown value, since a
+    missing value silently looks like a "free" asset and falsely scores as a
+    100% imbalance. Better to report "not gradable" than fabricate a verdict.
 
     Returns {roster_id: {"sent": int, "received": int, "net": int}}.
     """
@@ -125,12 +129,16 @@ def grade_trade(
 
     for player_id, roster_id in (transaction.get("adds") or {}).items():
         v = values.player_value(player_id)
+        if v == 0:
+            return None
         rid = int(roster_id)
         if rid in totals:
             totals[rid]["received"] += v
 
     for player_id, roster_id in (transaction.get("drops") or {}).items():
         v = values.player_value(player_id)
+        if v == 0:
+            return None
         rid = int(roster_id)
         if rid in totals:
             totals[rid]["sent"] += v
@@ -141,6 +149,8 @@ def grade_trade(
         if season is None or round_no is None:
             continue
         v = values.pick_value(season, round_no)
+        if v == 0:
+            return None
         new_owner = int(pick.get("owner_id", 0))
         prev_owner = int(pick.get("previous_owner_id", 0))
         if new_owner in totals:

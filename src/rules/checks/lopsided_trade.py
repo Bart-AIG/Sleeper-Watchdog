@@ -31,6 +31,8 @@ class LopsidedTrade:
             if tx.get("type") != "trade" or tx.get("status") != "complete":
                 continue
             grades = grade_trade(tx, ctx.fantasycalc)
+            if grades is None:
+                continue
             imbalance = trade_imbalance_percent(grades)
             if imbalance < threshold_pct:
                 continue
