@@ -228,6 +228,7 @@ def process_rules(
         transactions=transactions,
         roster_to_team=roster_lookup.get(),
         fantasycalc=fantasycalc,
+        league_state=league_state,
     )
 
     posted_keys = {ar.key for ar in league_state.alerts_posted}

@@ -22,6 +22,7 @@ from src.rules.result import RuleResult, Severity
 
 if TYPE_CHECKING:
     from src.fantasycalc import ValueLookup
+    from src.state import LeagueState
 
 log = structlog.get_logger(__name__)
 
@@ -44,6 +45,10 @@ class RuleContext:
     fantasycalc: "ValueLookup | None" = None
     drafts: list[dict[str, Any]] = field(default_factory=list)
     now: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
+    # Mutable handle to the league's persisted state. Most rules do not need
+    # this and should not touch it; rules that detect changes between runs
+    # (settings_changed, commish_change) use it to snapshot last-seen values.
+    league_state: "LeagueState | None" = None
 
 
 class RuleCheck(Protocol):
