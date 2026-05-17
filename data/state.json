@@ -3,7 +3,7 @@
   "leagues": {
     "1312238972738502656": {
       "bootstrapped_at": "2026-05-17T21:21:20.378548Z",
-      "last_run_at": "2026-05-17T23:18:49.772763Z",
+      "last_run_at": "2026-05-17T23:33:49.632643Z",
       "current_nfl_week": 0,
       "seen_transaction_ids": [
         "1361529975403970560",
@@ -43,7 +43,8 @@
         "1353134381442568192",
         "1343059638702080000",
         "1343059460108615680",
-        "1343059414977871873"
+        "1343059414977871873",
+        "1361883225135288320"
       ],
       "seen_draft_ids": [
         "1312238972746874880"
@@ -97,7 +98,8 @@
         "settings_compliance",
         "calendar_reminders",
         "settings_changed",
-        "commish_change"
+        "commish_change",
+        "roster_oversight"
       ],
       "last_settings_hash": "4efdd79074fb9f9f3741db54c241e111bafed854",
       "last_settings_snapshot": {
@@ -155,6 +157,7 @@
       "last_commish_user_ids": [
         "335897534494965760"
       ],
+      "strikes_by_user": {},
       "alerts_posted": [
         {
           "key": "1312238972738502656:1361529975403970560:lopsided_trade",
