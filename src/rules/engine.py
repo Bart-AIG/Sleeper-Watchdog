@@ -13,6 +13,7 @@ I/O and they do not mutate state. The orchestrator handles posting + dedup.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from datetime import datetime, timezone
 from typing import TYPE_CHECKING, Any, Protocol
 
 import structlog
@@ -41,6 +42,8 @@ class RuleContext:
     players: dict[str, dict[str, Any]] = field(default_factory=dict)
     roster_to_team: dict[int, str] = field(default_factory=dict)
     fantasycalc: "ValueLookup | None" = None
+    drafts: list[dict[str, Any]] = field(default_factory=list)
+    now: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
 
 
 class RuleCheck(Protocol):

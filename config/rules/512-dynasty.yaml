@@ -331,6 +331,44 @@ rules:
       autopause_end_time: 900
       cpu_autopick: 1
       reversal_round: 0
+- id: calendar_reminders
+  enabled: true
+  severity: FLAG
+  params:
+    reminders:
+    - id: amendments_window_closed
+      type: date_reached
+      date: '2026-04-30'
+      message: Off-Season Period 1 has ended. Settings amendments (Article XIII) are locked until next year.
+    - id: free_agency_should_be_open
+      type: date_passed_and_setting_not
+      after_date: '2026-06-01'
+      setting_path: disable_adds
+      expected_value: 0
+      message: Free agency was expected to be open by 2026-06-01 but disable_adds is still 1 in Sleeper.
+    - id: fantasy_season_one_week_out
+      type: days_before_date
+      date: '2026-09-03'
+      days: 7
+      message: Fantasy season starts in one week (2026-09-03). Confirm lineups and settings.
+    - id: fantasy_season_one_day_out
+      type: days_before_date
+      date: '2026-09-03'
+      days: 1
+      message: Fantasy season starts tomorrow. Set your Week 1 lineup.
+    - id: trade_deadline_next_week
+      type: nfl_week_reached
+      week: 12
+      message: Trade deadline starts NEXT week (Week 13). Last week to make trades per Article XI.
+    - id: trade_deadline_active
+      type: nfl_week_reached
+      week: 13
+      severity: BLOCK
+      message: Trade deadline is now in effect. Trades suspended through playoffs and championship per Article XI.
+    - id: playoffs_started
+      type: nfl_week_reached
+      week: 15
+      message: Playoffs start this week.
 - id: ir_eligibility
   enabled: true
   severity: BLOCK
