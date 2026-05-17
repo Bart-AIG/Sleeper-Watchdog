@@ -153,6 +153,39 @@ def _format_picks(picks: list[dict[str, Any]], roster_to_team: dict[int, str]) -
     return lines
 
 
+def build_rule_alert_embed(
+    rule_result: Any,
+    league_id: str,
+    league_name: str,
+    now: datetime | None = None,
+) -> dict[str, Any]:
+    """Embed for a rule violation. Color is driven by severity."""
+    ts = now or datetime.now(timezone.utc)
+    severity = str(rule_result.severity).upper()
+    color = {
+        "BLOCK": COLOR_RED,
+        "FLAG": COLOR_YELLOW,
+        "PASS": COLOR_GREEN,
+    }.get(severity, COLOR_BLUE)
+
+    fields = list(rule_result.fields)
+    fields.append(
+        {
+            "name": "League",
+            "value": f"[{league_name}](https://sleeper.com/leagues/{league_id})",
+            "inline": False,
+        }
+    )
+
+    return {
+        "title": f"[{severity}] {rule_result.title}",
+        "description": rule_result.message,
+        "color": color,
+        "fields": fields,
+        "footer": {"text": f"Sleeper Watchdog · {ts.strftime('%Y-%m-%d %H:%M UTC')}"},
+    }
+
+
 def build_draft_pick_embed(
     pick: dict[str, Any],
     draft: dict[str, Any],

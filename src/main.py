@@ -1,9 +1,12 @@
 """Sleeper Watchdog entry point.
 
-Phase 2 scope: poll the configured leagues for new transactions and draft picks
-and post each to Discord. First sighting of a league or a draft bootstraps
-silently (records current ids without posting) so we do not spam the channel
-on day one.
+- Phase 2: poll transactions and draft picks, post each new one to Discord
+- Phase 3: load each league's constitution YAML, run the rules engine against
+  current state, post a severity-colored embed for every new violation
+
+First sighting of a league or a draft bootstraps silently (records current ids
+without posting) so adding a new league or a new draft mid-stream does not
+spam the channel.
 
 Run with: python -m src.main
 """
@@ -19,13 +22,16 @@ import yaml
 from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+import src.rules.checks  # noqa: F401  triggers rule self-registration
 from src.discord_notify import (
     DiscordNotifier,
     build_draft_pick_embed,
+    build_rule_alert_embed,
     build_transaction_embed,
 )
+from src.rules.engine import RuleContext, evaluate_all
 from src.sleeper import SleeperClient, effective_transaction_week
-from src.state import LeagueState, WatchdogState, load_state, now_utc, save_state
+from src.state import AlertRecord, LeagueState, WatchdogState, load_state, now_utc, save_state
 
 CONFIG_PATH = Path("config/leagues.yaml")
 
@@ -54,6 +60,11 @@ def load_league_configs(path: Path = CONFIG_PATH) -> list[dict[str, Any]]:
     return [lg for lg in data.get("leagues", []) if lg.get("active", True)]
 
 
+def load_rules_yaml(rules_path: Path) -> dict[str, Any]:
+    with rules_path.open(encoding="utf-8") as f:
+        return yaml.safe_load(f) or {}
+
+
 def build_roster_to_team(
     rosters: list[dict[str, Any]], users: list[dict[str, Any]]
 ) -> dict[int, str]:
@@ -78,13 +89,23 @@ class RosterLookup:
     def __init__(self, sleeper: SleeperClient, league_id: str) -> None:
         self._sleeper = sleeper
         self._league_id = league_id
+        self._users: list[dict[str, Any]] | None = None
+        self._rosters: list[dict[str, Any]] | None = None
         self._map: dict[int, str] | None = None
+
+    def users(self) -> list[dict[str, Any]]:
+        if self._users is None:
+            self._users = self._sleeper.get_users(self._league_id)
+        return self._users
+
+    def rosters(self) -> list[dict[str, Any]]:
+        if self._rosters is None:
+            self._rosters = self._sleeper.get_rosters(self._league_id)
+        return self._rosters
 
     def get(self) -> dict[int, str]:
         if self._map is None:
-            users = self._sleeper.get_users(self._league_id)
-            rosters = self._sleeper.get_rosters(self._league_id)
-            self._map = build_roster_to_team(rosters, users)
+            self._map = build_roster_to_team(self.rosters(), self.users())
         return self._map
 
 
@@ -94,12 +115,11 @@ def process_transactions(
     sleeper: SleeperClient,
     notifier: DiscordNotifier,
     roster_lookup: RosterLookup,
-    week: int,
+    transactions: list[dict[str, Any]],
     log: structlog.BoundLogger,
 ) -> int:
     league_id = str(league_cfg["id"])
     league_name = league_cfg.get("name") or league_id
-    transactions = sleeper.get_transactions(league_id, week)
 
     seen = set(league_state.seen_transaction_ids)
     new_txs = [tx for tx in transactions if str(tx["transaction_id"]) not in seen]
@@ -167,6 +187,57 @@ def process_drafts(
     return total_new
 
 
+def process_rules(
+    league_cfg: dict[str, Any],
+    league_state: LeagueState,
+    sleeper: SleeperClient,
+    notifier: DiscordNotifier,
+    roster_lookup: RosterLookup,
+    nfl_state: dict[str, Any],
+    transactions: list[dict[str, Any]],
+    log: structlog.BoundLogger,
+) -> int:
+    league_id = str(league_cfg["id"])
+    league_name = league_cfg.get("name") or league_id
+
+    rules_file = league_cfg.get("rules_file")
+    if not rules_file:
+        log.info("rules.skipped.no_rules_file")
+        return 0
+    rules_yaml = load_rules_yaml(Path(rules_file))
+
+    ctx = RuleContext(
+        league_id=league_id,
+        league_name=league_name,
+        calendar=rules_yaml.get("calendar") or {},
+        nfl_state=nfl_state,
+        league=sleeper.get_league(league_id),
+        users=roster_lookup.users(),
+        rosters=roster_lookup.rosters(),
+        transactions=transactions,
+        roster_to_team=roster_lookup.get(),
+    )
+
+    posted_keys = {ar.key for ar in league_state.alerts_posted}
+    new_alerts = 0
+    for result in evaluate_all(ctx, rules_yaml):
+        if result.alert_key and result.alert_key in posted_keys:
+            continue
+        embed = build_rule_alert_embed(result, league_id, league_name)
+        notifier.post(embed)
+        league_state.alerts_posted.append(
+            AlertRecord(
+                key=result.alert_key,
+                posted_at=now_utc(),
+                severity=str(result.severity),
+            )
+        )
+        new_alerts += 1
+
+    log.info("rules.processed", new_alerts=new_alerts)
+    return new_alerts
+
+
 def process_league(
     league_cfg: dict[str, Any],
     state: WatchdogState,
@@ -182,8 +253,9 @@ def process_league(
     week = effective_transaction_week(nfl_state)
     log = log.bind(league_id=league_id, league=league_name, week=week)
 
+    transactions = sleeper.get_transactions(league_id, week)
+
     if not league_state.is_bootstrapped():
-        transactions = sleeper.get_transactions(league_id, week)
         league_state.bootstrapped_at = now_utc()
         league_state.last_run_at = now_utc()
         league_state.current_nfl_week = int(nfl_state.get("week", 0))
@@ -207,20 +279,23 @@ def process_league(
 
     roster_lookup = RosterLookup(sleeper, league_id)
     new_tx = process_transactions(
-        league_cfg, league_state, sleeper, notifier, roster_lookup, week, log
+        league_cfg, league_state, sleeper, notifier, roster_lookup, transactions, log
     )
     new_picks = process_drafts(
         league_cfg, league_state, sleeper, notifier, roster_lookup, log
     )
+    new_alerts = process_rules(
+        league_cfg, league_state, sleeper, notifier, roster_lookup, nfl_state, transactions, log
+    )
 
     league_state.last_run_at = now_utc()
     league_state.current_nfl_week = int(nfl_state.get("week", 0))
-    log.info("league.processed", new_tx=new_tx, new_picks=new_picks)
+    log.info("league.processed", new_tx=new_tx, new_picks=new_picks, new_alerts=new_alerts)
 
 
 def run(settings: Settings) -> int:
     log = structlog.get_logger("watchdog")
-    log.info("watchdog.start", phase=2)
+    log.info("watchdog.start", phase=3)
 
     leagues = load_league_configs()
     if not leagues:

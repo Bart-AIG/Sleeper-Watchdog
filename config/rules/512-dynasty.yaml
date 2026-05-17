@@ -5,7 +5,7 @@
 # Commissioner: Ryan Bartlett
 # =============================================================================
 
-league_id: "REPLACE_WITH_YOUR_LEAGUE_ID"          # from sleeper.com/leagues/<this_id>/...
+league_id: "1312238972738502656"                  # 512 Dynasty League (from sleeper.com/leagues/<this_id>/...)
 league_name: "512 Dynasty"
 notification_channel_id: "REPLACE_WITH_DISCORD_CHANNEL_ID"
 polling_seconds: 120
@@ -86,7 +86,11 @@ rules:
   # Position composition enforced by Sleeper — bot just sanity-checks total.
   # ---------------------------------------------------------------------------
   - id: roster_size
-    enabled: true
+    enabled: false                                 # disabled: pre-draft dynasty rosters legitimately
+                                                   #   exceed 28. Re-enable once the rookie draft
+                                                   #   completes and rosters trim to in-season size,
+                                                   #   OR upgrade the rule to gate on league.status
+                                                   #   == "in_season".
     severity: FLAG                                 # Sleeper enforces; FLAG only as belt-and-suspenders
     params:
       max_active: 28                               # 11 starters + 17 bench
