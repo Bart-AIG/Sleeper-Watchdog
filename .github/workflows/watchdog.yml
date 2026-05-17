@@ -1,10 +1,9 @@
 name: Sleeper Watchdog
 
 on:
+  schedule:
+    - cron: "*/15 * * * *"
   workflow_dispatch: {}
-  # schedule enabled in Phase 1, once a Discord webhook is wired up.
-  # schedule:
-  #   - cron: "*/15 * * * *"
 
 permissions:
   contents: write
@@ -30,5 +29,18 @@ jobs:
 
       - run: pip install -r requirements.txt
 
-      - name: Scaffold check
-        run: echo "Sleeper Watchdog scaffold OK"
+      - name: Run watchdog
+        env:
+          DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
+          FANTASYCALC_API_KEY: ${{ secrets.FANTASYCALC_API_KEY }}
+        run: python -m src.main
+
+      - name: Commit state changes
+        run: |
+          git config user.name "Sleeper Watchdog Bot"
+          git config user.email "watchdog@users.noreply.github.com"
+          git add data/
+          if ! git diff --staged --quiet; then
+            git commit -m "state: $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+            git push
+          fi
