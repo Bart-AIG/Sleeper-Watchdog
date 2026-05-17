@@ -49,12 +49,15 @@ rules:
     max_ir: 4
     max_taxi: 3
 - id: taxi_eligibility
-  enabled: true
+  enabled: false
   severity: BLOCK
   params:
     max_years_experience: 2
     add_deadline: fantasy_season_start
     message: 'Article VII: taxi squad addition violates eligibility (>2 yrs exp or after deadline).'
+    _disabled_reason: Sleeper enforces this natively via taxi_years/taxi_deadline/reserve_allow_* settings. The settings_compliance
+      rule catches drift on those settings before they can let a violation through. Re-enable only if you find Sleeper letting
+      a violation slip past correctly-configured settings.
 - id: roster_oversight
   enabled: true
   severity: FLAG
@@ -370,7 +373,7 @@ rules:
       week: 15
       message: Playoffs start this week.
 - id: ir_eligibility
-  enabled: true
+  enabled: false
   severity: BLOCK
   params:
     allowed_nfl_statuses:
@@ -379,6 +382,9 @@ rules:
     - Out
     - Suspended
     - Doubtful
+    _disabled_reason: Sleeper enforces this natively via taxi_years/taxi_deadline/reserve_allow_* settings. The settings_compliance
+      rule catches drift on those settings before they can let a violation through. Re-enable only if you find Sleeper letting
+      a violation slip past correctly-configured settings.
 notifications:
   alert_channel_id: REPLACE_WITH_DISCORD_CHANNEL_ID
   weekly_digest:

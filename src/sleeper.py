@@ -80,6 +80,10 @@ class SleeperClient:
                 "name": _player_name(p),
                 "team": p.get("team"),
                 "position": p.get("position"),
+                "fantasy_positions": p.get("fantasy_positions") or [p.get("position")],
+                "injury_status": p.get("injury_status") or "",
+                "years_exp": p.get("years_exp"),
+                "status": p.get("status"),
             }
             for pid, p in raw.items()
         }

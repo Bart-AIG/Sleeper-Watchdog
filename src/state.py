@@ -22,6 +22,23 @@ class AlertRecord(BaseModel):
     severity: str = "INFO"
 
 
+class Strike(BaseModel):
+    """One Article XIV roster-oversight strike against a manager."""
+
+    season: int
+    week: int
+    roster_id: int
+    position: str
+    occurred_at: datetime
+
+
+class StrikeRecord(BaseModel):
+    """Per-user running tally of strikes for the current season."""
+
+    season: int
+    strikes: list[Strike] = Field(default_factory=list)
+
+
 class LeagueState(BaseModel):
     bootstrapped_at: datetime | None = None
     last_run_at: datetime | None = None
@@ -33,6 +50,7 @@ class LeagueState(BaseModel):
     last_settings_hash: str = ""
     last_settings_snapshot: dict | None = None
     last_commish_user_ids: list[str] = Field(default_factory=list)
+    strikes_by_user: dict[str, StrikeRecord] = Field(default_factory=dict)
     alerts_posted: list[AlertRecord] = Field(default_factory=list)
 
     def is_bootstrapped(self) -> bool:
