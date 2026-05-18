@@ -2,7 +2,13 @@ name: Sleeper Watchdog
 
 on:
   schedule:
-    - cron: "*/15 * * * *"
+    # GitHub Actions cron can drop runs during load spikes that cluster on
+    # the on-the-hour and quarter-hour marks (`:00 :15 :30 :45`). To improve
+    # reliability we (a) shift to less-contested minute marks and (b) add a
+    # 5-minute-offset backup schedule so most 5-minute windows have at least
+    # one queued attempt. The concurrency group still prevents overlap.
+    - cron: "7,22,37,52 * * * *"
+    - cron: "12,27,42,57 * * * *"
   workflow_dispatch: {}
 
 permissions:
