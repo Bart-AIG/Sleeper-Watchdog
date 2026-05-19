@@ -50,6 +50,8 @@ class LeagueState(BaseModel):
     last_settings_hash: str = ""
     last_settings_snapshot: dict | None = None
     last_commish_user_ids: list[str] = Field(default_factory=list)
+    # ISO date string per draft_id, set the first time we observe status == "complete"
+    draft_completed_dates: dict[str, str] = Field(default_factory=dict)
     strikes_by_user: dict[str, StrikeRecord] = Field(default_factory=dict)
     alerts_posted: list[AlertRecord] = Field(default_factory=list)
 

@@ -43,6 +43,30 @@ class DiscordNotifier:
         log.info("discord.posted", title=embed.get("title"), status=response.status_code)
 
 
+def build_draft_complete_embed(
+    draft: dict[str, Any],
+    league_id: str,
+    league_name: str,
+    waivers_target_date: str,
+    now: datetime | None = None,
+) -> dict[str, Any]:
+    """One-off embed when a draft transitions to status == complete."""
+    ts = now or datetime.now(timezone.utc)
+    season = draft.get("season", "")
+    draft_id = str(draft.get("draft_id", ""))
+    rounds = (draft.get("settings") or {}).get("rounds")
+    return {
+        "title": f"{season} draft complete - {league_name}",
+        "description": f"All picks are in for the {season} draft ({rounds} rounds).",
+        "color": COLOR_GREEN,
+        "fields": [
+            {"name": "Waivers should open", "value": waivers_target_date, "inline": True},
+            {"name": "Draft", "value": f"[Open in Sleeper](https://sleeper.com/draft/nfl/{draft_id})", "inline": True},
+        ],
+        "footer": {"text": f"Sleeper Watchdog · {ts.strftime('%Y-%m-%d %H:%M UTC')}"},
+    }
+
+
 def build_hello_embed(now: datetime | None = None) -> dict[str, Any]:
     """Phase 1 'watchdog online' heartbeat. Kept for manual testing."""
     ts = now or datetime.now(timezone.utc)

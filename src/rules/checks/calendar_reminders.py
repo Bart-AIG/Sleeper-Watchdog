@@ -25,6 +25,19 @@ Supported reminder types:
       `setting_path` (dotted: "settings.disable_adds" or just "disable_adds"
       which defaults to settings.<key>) does NOT equal `expected_value`.
       Use for: "Free agency should be open by 2026-05-20 but disable_adds=1."
+
+    event_reached
+      Fires once when the resolved date for `event` is <= today.
+
+    days_before_event
+      Fires once when within `days` of the resolved date for `event`.
+
+    event_passed_and_setting_not
+      Same as date_passed_and_setting_not but uses an `event` anchor.
+
+Supported event names (resolved from ctx.league_state):
+  first_saturday_after_draft_complete - first Saturday strictly after the
+    latest draft completion date (one-week buffer if draft ended Sat).
 """
 
 from __future__ import annotations
@@ -32,6 +45,7 @@ from __future__ import annotations
 from datetime import date, datetime, timedelta, timezone
 from typing import Any
 
+from src.dates import first_saturday_after
 from src.rules.engine import RuleContext, register
 from src.rules.result import RuleResult, Severity
 
@@ -49,6 +63,21 @@ def _parse_date(value: Any) -> date:
     if isinstance(value, datetime):
         return value.date()
     return date.fromisoformat(str(value))
+
+
+def _resolve_event_date(event_name: str, ctx: RuleContext) -> date | None:
+    """Translate a named event (e.g. 'first_saturday_after_draft_complete')
+    into a calendar date by reading from ctx.league_state. Returns None if
+    the event has not happened yet so reminders silently skip."""
+    if ctx.league_state is None:
+        return None
+    if event_name == "first_saturday_after_draft_complete":
+        completed = ctx.league_state.draft_completed_dates
+        if not completed:
+            return None
+        latest = max(date.fromisoformat(d) for d in completed.values())
+        return first_saturday_after(latest)
+    return None
 
 
 def _resolve_setting(ctx: RuleContext, path: str) -> Any:
@@ -161,6 +190,52 @@ class CalendarReminders:
                 ctx,
                 extra={
                     "after_date": after_date.isoformat(),
+                    "setting_path": setting_path,
+                    "expected": expected_value,
+                    "live": live_value,
+                },
+            )
+
+        if rtype == "event_reached":
+            target = _resolve_event_date(rem["event"], ctx)
+            if target is None or today < target:
+                return None
+            return self._make(
+                rid, severity, message, season, ctx,
+                extra={"event": rem["event"], "target_date": target.isoformat()},
+            )
+
+        if rtype == "days_before_event":
+            target = _resolve_event_date(rem["event"], ctx)
+            if target is None:
+                return None
+            days = int(rem.get("days", 7))
+            window_start = target - timedelta(days=days)
+            if today < window_start or today > target:
+                return None
+            return self._make(
+                rid, severity, message, season, ctx,
+                extra={
+                    "event": rem["event"],
+                    "target_date": target.isoformat(),
+                    "days_remaining": (target - today).days,
+                },
+            )
+
+        if rtype == "event_passed_and_setting_not":
+            target = _resolve_event_date(rem["event"], ctx)
+            if target is None or today < target:
+                return None
+            setting_path = rem["setting_path"]
+            expected_value = rem["expected_value"]
+            live_value = _resolve_setting(ctx, setting_path)
+            if live_value == expected_value:
+                return None
+            return self._make(
+                rid, severity, message, season, ctx,
+                extra={
+                    "event": rem["event"],
+                    "target_date": target.isoformat(),
                     "setting_path": setting_path,
                     "expected": expected_value,
                     "live": live_value,

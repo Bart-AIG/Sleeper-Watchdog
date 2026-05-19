@@ -179,3 +179,71 @@ def test_alert_key_includes_season_and_id() -> None:
     params = {"reminders": [{"id": "deadline", "type": "nfl_week_reached", "week": 13, "message": "x"}]}
     key = CalendarReminders().evaluate(ctx, params)[0].alert_key
     assert key == "L1:calendar_reminders:deadline:2026"
+
+
+def _ctx_with_state(now_iso: str, draft_completed_dates: dict[str, str] | None = None, league=None) -> RuleContext:
+    from src.state import LeagueState
+    state = LeagueState(draft_completed_dates=draft_completed_dates or {})
+    return RuleContext(
+        league_id="L1",
+        league_name="Test",
+        league=league or {},
+        nfl_state={"week": 0, "season": "2026"},
+        now=datetime.fromisoformat(now_iso).replace(tzinfo=timezone.utc),
+        league_state=state,
+    )
+
+
+def test_event_reached_silent_until_event_recorded() -> None:
+    ctx = _ctx_with_state("2026-06-01T00:00:00", draft_completed_dates={})
+    params = {"reminders": [{"id": "x", "type": "event_reached", "event": "first_saturday_after_draft_complete", "message": "x"}]}
+    assert CalendarReminders().evaluate(ctx, params) == []
+
+
+def test_event_reached_fires_on_first_saturday_after_draft() -> None:
+    # Draft completed Wed 2026-05-20 -> first Saturday strictly after = 2026-05-23.
+    ctx = _ctx_with_state("2026-05-23T08:00:00", draft_completed_dates={"d1": "2026-05-20"})
+    params = {"reminders": [{"id": "open_day", "type": "event_reached", "event": "first_saturday_after_draft_complete", "message": "open today"}]}
+    results = CalendarReminders().evaluate(ctx, params)
+    assert len(results) == 1
+    assert "open_day" in results[0].title
+
+
+def test_event_reached_silent_before_anchor_date() -> None:
+    # Draft completed Wed 2026-05-20, anchor = Sat 2026-05-23. Today Thu 2026-05-21 -> silent.
+    ctx = _ctx_with_state("2026-05-21T08:00:00", draft_completed_dates={"d1": "2026-05-20"})
+    params = {"reminders": [{"id": "x", "type": "event_reached", "event": "first_saturday_after_draft_complete", "message": "x"}]}
+    assert CalendarReminders().evaluate(ctx, params) == []
+
+
+def test_days_before_event_fires_in_window() -> None:
+    # Draft completed Mon 2026-05-18, anchor = Sat 2026-05-23, 3-day window = May 20-23.
+    ctx = _ctx_with_state("2026-05-21T08:00:00", draft_completed_dates={"d1": "2026-05-18"})
+    params = {"reminders": [{"id": "soon", "type": "days_before_event", "event": "first_saturday_after_draft_complete", "days": 3, "message": "x"}]}
+    results = CalendarReminders().evaluate(ctx, params)
+    assert len(results) == 1
+    days_field = next(f for f in results[0].fields if f["name"] == "days_remaining")
+    assert days_field["value"] == "2"
+
+
+def test_event_passed_and_setting_not_fires_when_setting_wrong() -> None:
+    # Draft completed Mon 2026-05-18, anchor = Sat 2026-05-23, today Sun May 24, disable_adds still 1.
+    ctx = _ctx_with_state(
+        "2026-05-24T08:00:00",
+        draft_completed_dates={"d1": "2026-05-18"},
+        league={"settings": {"disable_adds": 1}},
+    )
+    params = {"reminders": [{"id": "fa", "type": "event_passed_and_setting_not", "event": "first_saturday_after_draft_complete", "setting_path": "disable_adds", "expected_value": 0, "message": "x"}]}
+    results = CalendarReminders().evaluate(ctx, params)
+    assert len(results) == 1
+
+
+def test_first_saturday_after_uses_latest_draft_when_multiple() -> None:
+    ctx = _ctx_with_state(
+        "2026-06-13T08:00:00",
+        draft_completed_dates={"d_rookie": "2026-05-18", "d_supp": "2026-06-08"},
+    )
+    # d_supp = Mon 2026-06-08 -> first Sat after = 2026-06-13
+    params = {"reminders": [{"id": "anchor", "type": "event_reached", "event": "first_saturday_after_draft_complete", "message": "x"}]}
+    results = CalendarReminders().evaluate(ctx, params)
+    assert len(results) == 1

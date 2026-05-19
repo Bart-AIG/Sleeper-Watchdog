@@ -25,10 +25,12 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 import src.rules.checks  # noqa: F401  triggers rule self-registration
 from src.discord_notify import (
     DiscordNotifier,
+    build_draft_complete_embed,
     build_draft_pick_embed,
     build_rule_alert_embed,
     build_transaction_embed,
 )
+from src.dates import first_saturday_after
 from src.fantasycalc import FantasyCalcClient, grade_trade, trade_imbalance_percent
 from src.rules.engine import RuleContext, evaluate_all, registered_rule_ids
 from src.sleeper import SleeperClient, effective_transaction_week
@@ -173,6 +175,11 @@ def process_drafts(
             league_state.seen_draft_pick_keys.extend(
                 f"{draft_id}:{p['pick_no']}" for p in picks
             )
+            if draft.get("status") == "complete":
+                # Edge: we are seeing a finished draft for the first time. Record
+                # the completion date so calendar reminders can anchor to it,
+                # but stay silent (this is bootstrap, not a real event).
+                league_state.draft_completed_dates[draft_id] = now_utc().date().isoformat()
             log.info("draft.bootstrapped", draft_id=draft_id, recorded=len(picks))
             continue
 
@@ -189,6 +196,27 @@ def process_drafts(
             )
             notifier.post(embed)
             league_state.seen_draft_pick_keys.append(f"{draft_id}:{pick['pick_no']}")
+
+        # Detect the moment the draft transitions to complete: status flips to
+        # 'complete' and we have not yet recorded a completion date for it.
+        if draft.get("status") == "complete" and draft_id not in league_state.draft_completed_dates:
+            completed_today = now_utc().date()
+            league_state.draft_completed_dates[draft_id] = completed_today.isoformat()
+            target_sat = first_saturday_after(completed_today)
+            notifier.post(
+                build_draft_complete_embed(
+                    draft=draft,
+                    league_id=league_id,
+                    league_name=league_name,
+                    waivers_target_date=target_sat.isoformat(),
+                )
+            )
+            log.info(
+                "draft.completed",
+                draft_id=draft_id,
+                completed_on=completed_today.isoformat(),
+                waivers_target=target_sat.isoformat(),
+            )
 
         if new_picks:
             log.info("draft.processed", draft_id=draft_id, new=len(new_picks))

@@ -336,26 +336,30 @@ rules:
       date: '2026-04-30'
       message: Off-Season Period 1 has ended. Settings amendments (Article XIII) are locked until next year.
     - id: waivers_open_7d
-      type: days_before_date
-      date: '2026-05-23'
+      type: days_before_event
+      event: first_saturday_after_draft_complete
       days: 7
-      message: WAIVERS OPEN in ~1 week (Sat 2026-05-23). Plan to flip Sleeper disable_adds to 0 that morning.
+      message: WAIVERS OPEN in ~1 week. Plan to flip Sleeper disable_adds to 0 that Saturday morning.
     - id: waivers_open_3d
-      type: days_before_date
-      date: '2026-05-23'
+      type: days_before_event
+      event: first_saturday_after_draft_complete
       days: 3
-      message: WAIVERS OPEN in 3 days (Sat 2026-05-23). Be ready to flip disable_adds to 0.
+      message: WAIVERS OPEN in 3 days. Be ready to flip disable_adds to 0.
     - id: waivers_open_1d
-      type: days_before_date
-      date: '2026-05-23'
+      type: days_before_event
+      event: first_saturday_after_draft_complete
       days: 1
-      message: WAIVERS OPEN TOMORROW (Sat 2026-05-23). Flip disable_adds to 0 in Sleeper league settings tomorrow morning.
+      message: WAIVERS OPEN TOMORROW. Flip disable_adds to 0 in Sleeper league settings.
+    - id: waivers_open_day
+      type: event_reached
+      event: first_saturday_after_draft_complete
+      message: Today is waivers open day. Flip disable_adds to 0 in Sleeper.
     - id: free_agency_should_be_open
-      type: date_passed_and_setting_not
-      after_date: '2026-05-23'
+      type: event_passed_and_setting_not
+      event: first_saturday_after_draft_complete
       setting_path: disable_adds
       expected_value: 0
-      message: Free agency was expected to open by 2026-05-23 but Sleeper disable_adds is still 1. Flip it now.
+      message: Waivers were expected to open by now but disable_adds is still 1 in Sleeper. Flip it.
     - id: faab_reset_7d
       type: days_before_date
       date: '2026-09-01'
@@ -365,7 +369,7 @@ rules:
       type: days_before_date
       date: '2026-09-01'
       days: 1
-      message: FAAB RESET TOMORROW (2026-09-01). Reset each team waiver_budget_used to 0 today or tomorrow before Sept 3 kickoff.
+      message: FAAB RESET TOMORROW (2026-09-01). Reset each team waiver_budget_used to 0.
     - id: fantasy_season_one_week_out
       type: days_before_date
       date: '2026-09-03'
@@ -389,6 +393,16 @@ rules:
       type: nfl_week_reached
       week: 15
       message: Playoffs start this week.
+- id: faab_reset_check
+  enabled: true
+  severity: FLAG
+  params:
+    check_dates:
+    - '2026-09-01'
+    - '2026-09-02'
+    field: settings.waiver_budget_used
+    expected_value: 0
+    message: Every team should have waiver_budget_used = 0 before the season starts. Reset the listed teams in Sleeper.
 - id: ir_eligibility
   enabled: false
   severity: BLOCK

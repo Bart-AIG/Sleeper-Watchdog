@@ -6,6 +6,7 @@ below. The engine never imports check modules directly.
 
 from src.rules.checks import calendar_reminders  # noqa: F401
 from src.rules.checks import commish_change  # noqa: F401
+from src.rules.checks import faab_reset_check  # noqa: F401
 from src.rules.checks import lopsided_trade  # noqa: F401
 from src.rules.checks import pick_trade_window  # noqa: F401
 from src.rules.checks import roster_oversight  # noqa: F401
