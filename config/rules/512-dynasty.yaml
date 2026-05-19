@@ -40,14 +40,6 @@ rules:
   params:
     expected_commissioners:
     - REPLACE_WITH_YOUR_SLEEPER_USER_ID
-- id: roster_size
-  enabled: true
-  severity: FLAG
-  params:
-    only_in_season: true
-    max_active: 28
-    max_ir: 4
-    max_taxi: 3
 - id: taxi_eligibility
   enabled: false
   severity: BLOCK
@@ -343,12 +335,37 @@ rules:
       type: date_reached
       date: '2026-04-30'
       message: Off-Season Period 1 has ended. Settings amendments (Article XIII) are locked until next year.
+    - id: waivers_open_7d
+      type: days_before_date
+      date: '2026-05-23'
+      days: 7
+      message: WAIVERS OPEN in ~1 week (Sat 2026-05-23). Plan to flip Sleeper disable_adds to 0 that morning.
+    - id: waivers_open_3d
+      type: days_before_date
+      date: '2026-05-23'
+      days: 3
+      message: WAIVERS OPEN in 3 days (Sat 2026-05-23). Be ready to flip disable_adds to 0.
+    - id: waivers_open_1d
+      type: days_before_date
+      date: '2026-05-23'
+      days: 1
+      message: WAIVERS OPEN TOMORROW (Sat 2026-05-23). Flip disable_adds to 0 in Sleeper league settings tomorrow morning.
     - id: free_agency_should_be_open
       type: date_passed_and_setting_not
-      after_date: '2026-06-01'
+      after_date: '2026-05-23'
       setting_path: disable_adds
       expected_value: 0
-      message: Free agency was expected to be open by 2026-06-01 but disable_adds is still 1 in Sleeper.
+      message: Free agency was expected to open by 2026-05-23 but Sleeper disable_adds is still 1. Flip it now.
+    - id: faab_reset_7d
+      type: days_before_date
+      date: '2026-09-01'
+      days: 7
+      message: FAAB RESET in 1 week (2026-09-01). Plan to reset each team waiver_budget_used to 0 before season starts 2026-09-03.
+    - id: faab_reset_1d
+      type: days_before_date
+      date: '2026-09-01'
+      days: 1
+      message: FAAB RESET TOMORROW (2026-09-01). Reset each team waiver_budget_used to 0 today or tomorrow before Sept 3 kickoff.
     - id: fantasy_season_one_week_out
       type: days_before_date
       date: '2026-09-03'

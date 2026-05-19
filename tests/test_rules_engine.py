@@ -18,7 +18,6 @@ def ctx() -> RuleContext:
 def test_registry_includes_phase3_checks() -> None:
     ids = registered_rule_ids()
     assert "trade_deadline" in ids
-    assert "roster_size" in ids
     assert "pick_trade_window" in ids
 
 
@@ -55,7 +54,7 @@ def test_rule_exception_does_not_kill_evaluation(ctx: RuleContext, caplog: Any) 
     rules_yaml = {
         "rules": [
             {"id": "bomb_rule", "enabled": True, "params": {}},
-            {"id": "roster_size", "enabled": True, "params": {"max_active": 999}},
+            {"id": "trade_deadline", "enabled": True, "params": {}},
         ]
     }
     assert evaluate_all(ctx, rules_yaml) == []

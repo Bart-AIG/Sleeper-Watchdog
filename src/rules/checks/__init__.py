@@ -9,7 +9,6 @@ from src.rules.checks import commish_change  # noqa: F401
 from src.rules.checks import lopsided_trade  # noqa: F401
 from src.rules.checks import pick_trade_window  # noqa: F401
 from src.rules.checks import roster_oversight  # noqa: F401
-from src.rules.checks import roster_size  # noqa: F401
 from src.rules.checks import settings_changed  # noqa: F401
 from src.rules.checks import settings_compliance  # noqa: F401
 from src.rules.checks import trade_deadline  # noqa: F401
