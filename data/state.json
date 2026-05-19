@@ -3,7 +3,7 @@
   "leagues": {
     "1312238972738502656": {
       "bootstrapped_at": "2026-05-17T21:21:20.378548Z",
-      "last_run_at": "2026-05-19T01:35:13.581290Z",
+      "last_run_at": "2026-05-19T01:36:07.348816Z",
       "current_nfl_week": 0,
       "seen_transaction_ids": [
         "1361529975403970560",
@@ -297,6 +297,11 @@
         {
           "key": "1312238972738502656:roster_size:12:752bfd14",
           "posted_at": "2026-05-19T00:00:22.148796Z",
+          "severity": "FLAG"
+        },
+        {
+          "key": "1312238972738502656:calendar_reminders:waivers_open_7d:2026",
+          "posted_at": "2026-05-19T01:36:07.348670Z",
           "severity": "FLAG"
         }
       ]
