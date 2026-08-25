@@ -3,7 +3,7 @@
   "leagues": {
     "1312238972738502656": {
       "bootstrapped_at": "2026-05-17T21:21:20.378548Z",
-      "last_run_at": "2026-08-24T23:55:17.113461Z",
+      "last_run_at": "2026-08-25T00:00:21.832342Z",
       "current_nfl_week": 3,
       "seen_transaction_ids": [
         "1361529975403970560",
@@ -382,6 +382,11 @@
         {
           "key": "1312238972738502656:settings_compliance:settings:d9057b7bad",
           "posted_at": "2026-05-23T18:40:19.132894Z",
+          "severity": "FLAG"
+        },
+        {
+          "key": "1312238972738502656:calendar_reminders:faab_reset_7d:2026",
+          "posted_at": "2026-08-25T00:00:21.832197Z",
           "severity": "FLAG"
         }
       ]
