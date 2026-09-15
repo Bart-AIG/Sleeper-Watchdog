@@ -3,8 +3,8 @@
   "leagues": {
     "1312238972738502656": {
       "bootstrapped_at": "2026-05-17T21:21:20.378548Z",
-      "last_run_at": "2026-09-15T04:00:21.474046Z",
-      "current_nfl_week": 1,
+      "last_run_at": "2026-09-15T04:05:14.920247Z",
+      "current_nfl_week": 2,
       "seen_transaction_ids": [
         "1361529975403970560",
         "1361441686751817728",
