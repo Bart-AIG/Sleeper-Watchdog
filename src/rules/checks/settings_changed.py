@@ -56,6 +56,7 @@ class SettingsChanged:
             "leg",
             "daily_waivers_last_ran",
             "last_scored_leg",
+            "last_report",
         }
         current_settings = ctx.league.get("settings") or {}
         current_hash = _hash({k: v for k, v in current_settings.items() if k not in ignore_keys})
