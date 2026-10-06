@@ -112,6 +112,21 @@ class RosterLookup:
         return self._map
 
 
+def fetch_recent_transactions(
+    sleeper: SleeperClient, league_id: str, week: int
+) -> list[dict[str, Any]]:
+    """Transactions for the previous and current week, oldest week first.
+
+    Re-reading last week catches anything that landed around the weekly
+    rollover, or that a failed run never posted, before Sleeper moves on.
+    The seen-ids ledger keeps this from double-posting.
+    """
+    transactions: list[dict[str, Any]] = []
+    for w in sorted({max(week - 1, 1), week}):
+        transactions.extend(sleeper.get_transactions(league_id, w))
+    return transactions
+
+
 def process_transactions(
     league_cfg: dict[str, Any],
     league_state: LeagueState,
@@ -326,7 +341,7 @@ def process_league(
     week = effective_transaction_week(nfl_state)
     log = log.bind(league_id=league_id, league=league_name, week=week)
 
-    transactions = sleeper.get_transactions(league_id, week)
+    transactions = fetch_recent_transactions(sleeper, league_id, week)
 
     if not league_state.is_bootstrapped():
         league_state.bootstrapped_at = now_utc()

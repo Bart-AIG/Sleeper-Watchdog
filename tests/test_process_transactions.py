@@ -6,7 +6,7 @@ from typing import Any
 
 import structlog
 
-from src.main import process_transactions
+from src.main import fetch_recent_transactions, process_transactions
 from src.state import LeagueState
 
 
@@ -85,3 +85,39 @@ def test_ungradable_trade_does_not_block_later_transactions() -> None:
     assert state.seen_transaction_ids == ["t1", "t2"]
     graded = [f["name"] for f in notifier.posted[1]["fields"]]
     assert "Trade values" in graded
+
+
+class _WeeklySleeper:
+    def __init__(self, by_week: dict[int, list[dict[str, Any]]]) -> None:
+        self.by_week = by_week
+        self.weeks_fetched: list[int] = []
+
+    def get_transactions(self, league_id: str, week: int) -> list[dict[str, Any]]:
+        self.weeks_fetched.append(week)
+        return self.by_week.get(week, [])
+
+
+def test_fetch_recent_includes_previous_week_oldest_first() -> None:
+    sleeper = _WeeklySleeper({4: [{"transaction_id": "w4"}], 5: [{"transaction_id": "w5"}]})
+    txs = fetch_recent_transactions(sleeper, "L1", 5)
+    assert sleeper.weeks_fetched == [4, 5]
+    assert [t["transaction_id"] for t in txs] == ["w4", "w5"]
+
+
+def test_fetch_recent_week_one_fetches_once() -> None:
+    sleeper = _WeeklySleeper({1: [{"transaction_id": "w1"}]})
+    assert [t["transaction_id"] for t in fetch_recent_transactions(sleeper, "L1", 1)] == ["w1"]
+    assert sleeper.weeks_fetched == [1]
+
+
+def test_missed_last_week_tx_posts_once_after_rollover() -> None:
+    state = LeagueState(seen_transaction_ids=["w5-old"])
+    notifier = _Notifier()
+    sleeper = _WeeklySleeper({4: [_trade("w4-missed", "known")], 5: [_trade("w5-old", "known")]})
+
+    txs = fetch_recent_transactions(sleeper, "L1", 5)
+    _run(txs, state, notifier)
+    _run(txs, state, notifier)
+
+    assert len(notifier.posted) == 1
+    assert state.seen_transaction_ids == ["w5-old", "w4-missed"]
