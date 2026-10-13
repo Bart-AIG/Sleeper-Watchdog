@@ -112,6 +112,21 @@ class RosterLookup:
         return self._map
 
 
+def fetch_recent_transactions(
+    sleeper: SleeperClient, league_id: str, week: int
+) -> list[dict[str, Any]]:
+    """Transactions for the previous and current week, oldest week first.
+
+    Re-reading last week catches anything that landed around the weekly
+    rollover, or that a failed run never posted, before Sleeper moves on.
+    The seen-ids ledger keeps this from double-posting.
+    """
+    transactions: list[dict[str, Any]] = []
+    for w in sorted({max(week - 1, 1), week}):
+        transactions.extend(sleeper.get_transactions(league_id, w))
+    return transactions
+
+
 def process_transactions(
     league_cfg: dict[str, Any],
     league_state: LeagueState,
@@ -134,8 +149,16 @@ def process_transactions(
             trade_grade_data = None
             imbalance = None
             if fantasycalc is not None and tx.get("type") == "trade" and tx.get("status") == "complete":
-                trade_grade_data = grade_trade(tx, fantasycalc)
-                imbalance = trade_imbalance_percent(trade_grade_data)
+                # Grading is decoration on the post; it must never block it.
+                # grade_trade returns None when any asset has no known value.
+                try:
+                    trade_grade_data = grade_trade(tx, fantasycalc)
+                    if trade_grade_data is not None:
+                        imbalance = trade_imbalance_percent(trade_grade_data)
+                except Exception:
+                    log.exception("trade.grade_failed", transaction_id=tx.get("transaction_id"))
+                    trade_grade_data = None
+                    imbalance = None
 
             embed = build_transaction_embed(
                 tx=tx,
@@ -318,7 +341,7 @@ def process_league(
     week = effective_transaction_week(nfl_state)
     log = log.bind(league_id=league_id, league=league_name, week=week)
 
-    transactions = sleeper.get_transactions(league_id, week)
+    transactions = fetch_recent_transactions(sleeper, league_id, week)
 
     if not league_state.is_bootstrapped():
         league_state.bootstrapped_at = now_utc()
@@ -377,14 +400,18 @@ def run(settings: Settings) -> int:
         return 0
 
     state = load_state()
-    with SleeperClient() as sleeper, DiscordNotifier(settings.discord_webhook_url) as notifier:
-        for league_cfg in leagues:
-            try:
-                process_league(league_cfg, state, sleeper, notifier, log)
-            except Exception:
-                log.exception("league.failed", league_id=league_cfg.get("id"))
-                raise
-    save_state(state)
+    try:
+        with SleeperClient() as sleeper, DiscordNotifier(settings.discord_webhook_url) as notifier:
+            for league_cfg in leagues:
+                try:
+                    process_league(league_cfg, state, sleeper, notifier, log)
+                except Exception:
+                    log.exception("league.failed", league_id=league_cfg.get("id"))
+                    raise
+    finally:
+        # Save even on failure: anything already posted to Discord is recorded
+        # as seen, so the next run does not re-post it before failing again.
+        save_state(state)
 
     log.info("watchdog.done")
     return 0

@@ -42,6 +42,9 @@ jobs:
         run: python -m src.main
 
       - name: Commit state changes
+        # Also commit after a failed run, so posts that went out before the
+        # failure are recorded and not re-posted by the next run.
+        if: ${{ !cancelled() }}
         run: |
           git config user.name "Sleeper Watchdog Bot"
           git config user.email "watchdog@users.noreply.github.com"

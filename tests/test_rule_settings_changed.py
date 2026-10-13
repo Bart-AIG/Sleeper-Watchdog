@@ -85,6 +85,15 @@ def test_ignored_key_change_does_not_alert() -> None:
     assert results == []
 
 
+def test_weekly_rollover_keys_do_not_alert() -> None:
+    # Sleeper bumps these on its own every week after scoring finalizes.
+    state = LeagueState()
+    before = {"leg": 3, "last_scored_leg": 3, "last_report": 3, "daily_waivers_last_ran": 29}
+    after = {"leg": 4, "last_scored_leg": 4, "last_report": 4, "daily_waivers_last_ran": 6}
+    SettingsChanged().evaluate(_ctx(settings=before, state=state), {})
+    assert SettingsChanged().evaluate(_ctx(settings=after, state=state), {}) == []
+
+
 def test_diff_field_lists_each_changed_key() -> None:
     state = LeagueState()
     SettingsChanged().evaluate(_ctx(settings={"a": 1, "b": 2}, state=state), {})
