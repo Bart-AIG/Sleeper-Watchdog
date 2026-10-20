@@ -3,7 +3,7 @@
   "leagues": {
     "1312238972738502656": {
       "bootstrapped_at": "2026-05-17T21:21:20.378548Z",
-      "last_run_at": "2026-10-20T15:40:19.649887Z",
+      "last_run_at": "2026-10-20T15:45:19.258665Z",
       "current_nfl_week": 7,
       "seen_transaction_ids": [
         "1361529975403970560",
@@ -237,10 +237,10 @@
         "roster_oversight",
         "faab_reset_check"
       ],
-      "last_settings_hash": "7995fd007d3c08f891513c9556f507b552e8c80d",
+      "last_settings_hash": "a0765570ac2992464d62766e4accb8b7bbffe6d0",
       "last_settings_snapshot": {
         "best_ball": 0,
-        "last_report": 5,
+        "last_report": 6,
         "waiver_budget": 100,
         "disable_adds": 0,
         "capacity_override": 0,
@@ -257,7 +257,7 @@
         "playoff_type": 1,
         "taxi_slots": 3,
         "sub_start_time_eligibility": 0,
-        "last_scored_leg": 5,
+        "last_scored_leg": 6,
         "daily_waivers_days": 5461,
         "sub_lock_if_starter_active": 0,
         "playoff_week_start": 15,
@@ -286,11 +286,11 @@
         "trade_review_days": 0,
         "bench_lock": 0,
         "offseason_adds": 1,
-        "leg": 5,
+        "leg": 6,
         "daily_waivers_base": 4,
         "reserve_slots": 4,
         "reserve_allow_cov": 1,
-        "daily_waivers_last_ran": 13
+        "daily_waivers_last_ran": 20
       },
       "last_commish_user_ids": [
         "335897534494965760"
@@ -508,6 +508,11 @@
         {
           "key": "1312238972738502656:settings_changed:7995fd007d3c",
           "posted_at": "2026-10-13T15:40:21.797747Z",
+          "severity": "BLOCK"
+        },
+        {
+          "key": "1312238972738502656:settings_changed:a0765570ac29",
+          "posted_at": "2026-10-20T15:45:19.258515Z",
           "severity": "BLOCK"
         }
       ]
